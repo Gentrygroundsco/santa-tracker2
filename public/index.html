@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Santa Tracker</title>
+  <meta name="description" content="Follow Santa's sleigh around a live 3D globe on Christmas Eve, with a gift counter, his next stop and his final destination.">
+  <meta name="theme-color" content="#07122b">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎅</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body data-phase="prelaunch">
+  <div id="globe" aria-label="3D globe showing Santa's position"></div>
+  <canvas id="snow" aria-hidden="true"></canvas>
+  <div id="tags" aria-hidden="true"><div id="santa-marker" class="tag santa"><span>🎅</span></div></div>
+
+  <header class="topbar">
+    <div class="brand"><span class="logo">🎅</span><h1>Santa Tracker</h1><span id="mode-badge" class="badge idle">COUNTDOWN</span></div>
+    <div id="clock" class="clock"></div>
+    <div class="actions">
+      <button id="follow-btn" class="chip active">🎯 Following Santa</button>
+      <button id="sleighcam-btn" class="chip">🎥 Sleigh cam</button>
+      <label class="chip"><input id="route-toggle" type="checkbox" checked> Route</label>
+      <button id="demo-btn" class="chip demo-chip">✨ Demo flight</button>
+    </div>
+  </header>
+
+  <aside class="panel tracker" aria-live="polite">
+    <div class="gift-box">
+      <div class="label">Gifts delivered</div>
+      <div id="gifts" class="gifts">0</div>
+      <div class="progress"><div id="progress-bar"></div></div>
+    </div>
+    <p id="status" class="status"></p>
+    <div class="row"><div class="label">📍 Current location</div><div id="location" class="value"></div></div>
+    <div class="row next"><div class="label">➡️ Next stop</div><div id="next-stop" class="value"></div><div id="next-eta" class="sub"></div></div>
+    <div class="row final"><div class="label">🏁 Final destination</div><div id="final-stop" class="value"></div><div id="final-eta" class="sub"></div></div>
+    <div class="stats">
+      <div><div class="label">Stops</div><div id="stops-count" class="stat"></div></div>
+      <div><div class="label">Distance</div><div id="distance" class="stat"></div></div>
+      <div><div class="label">Speed</div><div id="speed" class="stat"></div></div>
+      <div><div class="label">Cookies eaten</div><div id="cookies" class="stat"></div></div>
+    </div>
+    <button id="near-btn" class="link-btn">🏠 When does Santa reach me?</button>
+    <p id="near-result" class="sub"></p>
+  </aside>
+
+  <aside class="panel log-panel">
+    <h2>Recent stops</h2>
+    <ul id="log"></ul>
+  </aside>
+
+  <button id="mini-countdown" class="mini-countdown" hidden></button>
+
+  <section id="countdown" class="countdown" hidden>
+    <div class="cd-card">
+      <div class="cd-icon">🦌🛷</div>
+      <h2 id="cd-title">Santa launches from the North Pole in</h2>
+      <div class="cd-grid">
+        <div><span id="cd-days">0</span><small>days</small></div>
+        <div><span id="cd-hours">00</span><small>hours</small></div>
+        <div><span id="cd-mins">00</span><small>minutes</small></div>
+        <div><span id="cd-secs">00</span><small>seconds</small></div>
+      </div>
+      <p id="cd-sub" class="cd-sub"></p>
+      <div class="cd-actions">
+        <button id="cd-demo" class="btn primary">✨ Watch a demo flight</button>
+        <button id="cd-explore" class="btn">🌍 Explore the globe</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="demo-bar" role="group" aria-label="Demo controls">
+    <span class="demo-tag">DEMO</span>
+    <button id="demo-play" class="chip" aria-label="Play or pause">⏸</button>
+    <input id="scrub" type="range" step="1000" aria-label="Christmas Eve timeline">
+    <div class="speeds">
+      <button class="chip" data-speed="60">60×</button>
+      <button class="chip" data-speed="120">120×</button>
+      <button class="chip" data-speed="600">600×</button>
+      <button class="chip" data-speed="1800">1800×</button>
+    </div>
+    <button id="demo-exit" class="chip">Exit demo</button>
+  </div>
+
+  <script type="module" src="/build/app.js"></script>
+</body>
+</html>
