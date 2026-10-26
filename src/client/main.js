@@ -1,7 +1,7 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { buildSchedule, santaState, seasonYear, sunPosition, distanceKm } from './schedule.js';
-import { createSleigh, createTrail } from './sleigh.js';
+import { createSleigh, createTrail, loadSleighModel } from './sleigh.js';
 import { startSnow } from './snow.js';
 
 const $ = (id) => document.getElementById(id);
@@ -127,6 +127,9 @@ globe.scene().add(clouds);
 const sleigh = createSleigh();
 const trail = createTrail();
 globe.scene().add(sleigh.object, trail.object);
+loadSleighModel('/models/santa-sleigh.glb')
+  .then((m) => sleigh.useModel(m))
+  .catch((err) => console.warn('Using the built-in sleigh; the detailed model failed to load.', err));
 
 function resize() {
   globe.width(window.innerWidth).height(window.innerHeight);
@@ -135,6 +138,29 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 resize();
+
+// ---------- Santa Cam angles ----------
+// Each angle places a camera relative to the sleigh: P is its position, f its
+// heading, u straight up, r to its side, and s the sleigh's current size.
+const CAM_ANGLES = {
+  chase: { label: 'Chase', place: (F, L, H) => [[0, F.max.y + 0.08 * L, F.min.z - 0.25 * L], [0, 0.55 * H, F.min.z + 0.6 * L], 'u'] },
+  rider: { label: 'Santa’s view', place: (F, L, H) => [[0, F.max.y + 0.2 * H, F.santa.z - 0.04 * L], [0, F.santa.y + 0.1 * H, F.max.z + 0.3 * L], 'u'] },
+  side: { label: 'Side', place: (F, L, H) => [[0.78 * L, 0.65 * H, F.min.z + 0.5 * L], [0, 0.45 * H, F.min.z + 0.5 * L], 'u'] },
+  front: { label: 'Reindeer', place: (F, L, H) => [[0.12 * L, 0.8 * H, F.max.z + 0.22 * L], [0, 0.45 * H, F.santa.z + 0.1 * L], 'u'] },
+  top: { label: 'Overhead', place: (F, L, H) => [[0, 0.75 * L, F.min.z + 0.5 * L], [0, 0, F.min.z + 0.5 * L], 'f'] },
+};
+// World-space camera position, look target and up vector for an angle, given
+// the sleigh's position P, heading f, up u, side r and current scale.
+function camPlacement(angle, P, f, u, r, scale) {
+  const F = sleigh.frame;
+  const L = F.max.z - F.min.z;
+  const H = F.max.y - F.min.y;
+  const [pos, look, upKey] = CAM_ANGLES[angle].place(F, L, H);
+  const toWorld = ([x, y, z]) => P.clone().addScaledVector(r, x * scale).addScaledVector(u, y * scale).addScaledVector(f, z * scale);
+  return [toWorld(pos), toWorld(look), upKey === 'f' ? f : u];
+}
+let mainAngle = 'chase';
+let pipAngle = 'side';
 
 // ---------- Camera ----------
 // 'follow': globe view that keeps Santa centred. 'free': the user spins the
@@ -281,6 +307,9 @@ function renderPanel(state, t) {
   else if (phase === 'delivering') status = `Delivering presents in <b>${place(state.current)}</b>`;
   else status = `Flying from <b>${place(state.prev)}</b> to <b>${place(state.next)}</b>`;
   $('status').innerHTML = status;
+  $('santacam-caption').textContent = phase === 'prelaunch' ? 'North Pole · sleigh loading'
+    : phase === 'landed' ? 'North Pole · home safe'
+    : phase === 'delivering' ? `Delivering in ${state.current.name}` : `En route to ${state.next.name}`;
 
   $('location').textContent = phase === 'flying'
     ? `${Math.abs(state.lat).toFixed(2)}°${state.lat >= 0 ? 'N' : 'S'}, ${Math.abs(state.lng).toFixed(2)}°${state.lng >= 0 ? 'E' : 'W'}`
@@ -400,6 +429,69 @@ $('near-btn').addEventListener('click', () => {
   }, () => { out.textContent = 'We couldn’t get your location, but Santa arrives everywhere around local midnight.'; }, { timeout: 10000 });
 });
 
+// ---------- Santa Cam window ----------
+// A live picture-in-picture view of the sleigh, drawn into a corner of the
+// globe's canvas right after the globe itself renders.
+const pipEl = $('santacam');
+const pipCam = new THREE.PerspectiveCamera(50, 16 / 9, 0.01, 4000);
+let pipOn = true;
+const pipSize = new THREE.Vector2();
+const pipState = { pos: null, look: null, up: new THREE.Vector3() };
+
+function setPip(on) {
+  pipOn = on;
+  pipEl.hidden = !on;
+  $('santacam-btn').classList.toggle('active', on);
+}
+function setPipAngle(angle) {
+  pipAngle = angle;
+  document.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('active', b.dataset.cam === angle));
+  $('santacam-name').textContent = CAM_ANGLES[angle].label;
+  pipState.pos = null;
+}
+document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => setPipAngle(b.dataset.cam)));
+$('santacam-btn').addEventListener('click', () => setPip(!pipOn));
+$('santacam-close').addEventListener('click', () => setPip(false));
+$('santacam-expand').addEventListener('click', () => {
+  // Swap: the window's angle goes full screen, and the window shows the globe-friendly chase view.
+  mainAngle = pipAngle;
+  camYaw = 0;
+  setCamMode('sleigh');
+  setPipAngle(pipAngle === 'chase' ? 'side' : 'chase');
+});
+setPipAngle(pipAngle);
+if (window.innerWidth <= 640) setPip(false);
+
+function renderSantaCam(P, f, u, r, s, dt) {
+  if (!pipOn) return;
+  const rect = pipEl.querySelector('.santacam-view').getBoundingClientRect();
+  if (rect.width < 10) return;
+  const [pos, look, camUp] = camPlacement(pipAngle, P, f, u, r, s);
+  const k = Math.min(1, dt * 4);
+  if (!pipState.pos || pipState.pos.distanceTo(pos) > 20 * s) {
+    pipState.pos = pos.clone(); pipState.look = look.clone(); pipState.up.copy(camUp);
+  } else {
+    pipState.pos.lerp(pos, k); pipState.look.lerp(look, k); pipState.up.lerp(camUp, k).normalize();
+  }
+  pipCam.position.copy(pipState.pos);
+  pipCam.up.copy(pipState.up);
+  pipCam.lookAt(pipState.look);
+  pipCam.aspect = rect.width / rect.height;
+  pipCam.updateProjectionMatrix();
+
+  const renderer = globe.renderer();
+  renderer.getSize(pipSize);
+  const y = pipSize.y - rect.bottom;
+  renderer.setScissorTest(true);
+  renderer.setScissor(rect.left, y, rect.width, rect.height);
+  renderer.setViewport(rect.left, y, rect.width, rect.height);
+  sleigh.showHalo(false);
+  renderer.render(globe.scene(), pipCam);
+  sleigh.showHalo(camMode !== 'sleigh');
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, pipSize.x, pipSize.y);
+}
+
 // ---------- Animation loop ----------
 const tmp = { pos: new THREE.Vector3(), target: new THREE.Vector3(), up: new THREE.Vector3(), fwd: new THREE.Vector3(), right: new THREE.Vector3(), m: new THREE.Matrix4(), q: new THREE.Quaternion() };
 const vec = (c) => new THREE.Vector3(c.x, c.y, c.z);
@@ -448,26 +540,28 @@ function frame(nowMs) {
   }
   sleigh.object.position.copy(tmp.pos);
   sleigh.object.scale.setScalar(scale);
+  sleigh.showHalo(camMode !== 'sleigh');
   const moving = state.phase === 'flying';
   sleigh.animate(elapsed, moving);
 
   // Sparkles stream off the back of the sleigh while it flies.
   if (moving || state.phase === 'delivering') {
-    const back = tmp.pos.clone().add(tmp.fwd.clone().multiplyScalar(-1.2 * scale));
-    for (let i = 0; i < (moving ? 3 : 1); i++) trail.emit(back, scale * (moving ? 0.6 : 1.5));
+    const back = tmp.pos.clone().addScaledVector(tmp.fwd, (sleigh.frame.min.z - 0.3) * scale).addScaledVector(tmp.up, 0.4 * scale);
+    for (let i = 0; i < (moving ? 3 : 1); i++) trail.emit(back, scale * (moving ? 0.6 : 1.2));
   }
   trail.update(dt, scale * 0.6);
 
   // Keep the camera on Santa, easing toward him; the user's zoom is kept.
   if (camMode === 'sleigh') {
     const cam = globe.camera();
-    const back = tmp.fwd.clone().applyAxisAngle(tmp.up, camYaw);
-    const want = tmp.pos.clone().addScaledVector(back, -6.5).addScaledVector(tmp.up, 2.6);
-    const look = tmp.pos.clone().addScaledVector(tmp.fwd, 3).addScaledVector(tmp.up, 0.3);
+    // Dragging swings the camera around the sleigh.
+    const f = tmp.fwd.clone().applyAxisAngle(tmp.up, camYaw);
+    const r = tmp.right.clone().applyAxisAngle(tmp.up, camYaw);
+    const [want, look, camUp] = camPlacement(mainAngle, tmp.pos, f, tmp.up, r, scale);
     const k = Math.min(1, dt * 3);
-    if (cam.position.distanceTo(want) > 40) cam.position.copy(want);
+    if (cam.position.distanceTo(want) > 20 * scale) cam.position.copy(want);
     else cam.position.lerp(want, k);
-    cam.up.copy(tmp.up);
+    cam.up.lerp(camUp, k).normalize();
     controls.target.copy(look);
     cam.lookAt(look);
   } else if (camMode === 'follow') {
@@ -486,6 +580,8 @@ function frame(nowMs) {
     if (el.point) placeTag(el, vec(globe.getCoords(el.point.lat, el.point.lng, 0.01)), camMode === 'sleigh' ? 0.85 : 1);
     else el.style.opacity = 0;
   }
+
+  renderSantaCam(tmp.pos, tmp.fwd, tmp.up, tmp.right, scale, dt);
 
   $('gifts').textContent = fmtInt(state.gifts);
   if (nowMs - lastPanel > 200) {

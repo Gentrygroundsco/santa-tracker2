@@ -4,6 +4,10 @@ import * as THREE from 'three';
 // primitives. Faces +Z, with +Y up. Call `animate(seconds)` every frame.
 export function createSleigh() {
   const root = new THREE.Group();
+  // The simple built-in model; replaced by the detailed one once it loads.
+  const body = new THREE.Group();
+  root.add(body);
+  let model = null;
   const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.1, ...extra });
   const red = mat(0xc8102e);
   const gold = mat(0xf5c542, { metalness: 0.8, roughness: 0.3 });
@@ -63,7 +67,7 @@ export function createSleigh() {
   sleigh.add(sack);
   sleigh.add(mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), green, 0.3, 0.75, -0.5));
   sleigh.add(mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), mat(0x2b6cd9), -0.3, 0.75, -0.45));
-  root.add(sleigh);
+  body.add(sleigh);
 
   // Reindeer: four pairs, then Rudolph in front.
   const deer = [];
@@ -114,21 +118,21 @@ export function createSleigh() {
       d.group.position.set(x, 0.55, 1.9 + pair * 0.85);
       d.phase = pair * 0.9 + (x > 0 ? 0.4 : 0);
       deer.push(d);
-      root.add(d.group);
+      body.add(d.group);
     }
   }
   const rudolph = makeReindeer(true);
   rudolph.group.position.set(0, 0.55, 1.9 + 4 * 0.85);
   rudolph.phase = 4.2;
   deer.push(rudolph);
-  root.add(rudolph.group);
+  body.add(rudolph.group);
 
   // Reins
   const reinPts = [];
   for (const d of deer) {
     reinPts.push(new THREE.Vector3(0, 0.95, -0.05), d.group.position.clone().add(new THREE.Vector3(0, 0.25, 0.3)));
   }
-  root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(reinPts),
+  body.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(reinPts),
     new THREE.LineBasicMaterial({ color: 0xf5c542, transparent: true, opacity: 0.8 })));
 
   // A warm glow around the whole team so it is visible from far away.
@@ -145,6 +149,8 @@ export function createSleigh() {
   root.add(light);
 
   function animate(time, moving) {
+    halo.material.opacity = 0.45 + 0.1 * Math.sin(time * 2.5);
+    if (model) { model.animate(time, moving); return; }
     const speed = moving ? 9 : 3;
     for (const d of deer) {
       const s = Math.sin(time * speed + d.phase);
@@ -154,10 +160,117 @@ export function createSleigh() {
     }
     sleigh.position.y = 0.04 * Math.sin(time * 2);
     sleigh.rotation.z = moving ? 0.05 * Math.sin(time * 1.3) : 0;
-    halo.material.opacity = 0.45 + 0.1 * Math.sin(time * 2.5);
   }
 
-  return { object: root, animate };
+  const api = {
+    object: root,
+    animate,
+    // Extent of the model in its own frame (+Z forward, +Y up), for camera framing.
+    frame: { min: new THREE.Vector3(-0.6, 0, -0.9), max: new THREE.Vector3(0.6, 1.8, 5.8), santa: new THREE.Vector3(0, 1.3, -0.2) },
+    useModel(m) {
+      model = m;
+      root.remove(body);
+      root.add(m.object);
+      api.frame = m.frame;
+    },
+    // The halo helps spot Santa from space but washes out close-up views.
+    showHalo(on) { halo.visible = on; },
+  };
+  return api;
+}
+
+// Loads the detailed sleigh (a glTF with Santa, the sleigh and nine reindeer)
+// and fits it to the same frame as the built-in model: facing +Z, +Y up, with
+// the sleigh at the origin and Rudolph about 5 units ahead.
+export async function loadSleighModel(url) {
+  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+  const gltf = await new GLTFLoader().loadAsync(url);
+  const scene = gltf.scene;
+  scene.updateMatrixWorld(true);
+
+  const nodes = [];
+  scene.traverse((o) => nodes.push(o));
+  const centerOf = (o) => new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+  const sleighNode = nodes.find((o) => /^Sleigh/i.test(o.name)) || scene;
+  const deer = nodes.filter((o) => /^Reindeer(-\d+)?_\d+$/.test(o.name));
+  const sleighCenter = centerOf(sleighNode);
+
+  // Forward is from the sleigh toward the reindeer; the file is Y-up.
+  const up = new THREE.Vector3(0, 1, 0);
+  let lead = sleighCenter.clone();
+  let leadDist = 0;
+  for (const d of deer) {
+    const c = centerOf(d);
+    const dist = c.distanceTo(sleighCenter);
+    if (dist > leadDist) { leadDist = dist; lead = c; }
+  }
+  const forward = lead.clone().sub(sleighCenter);
+  forward.sub(up.clone().multiplyScalar(forward.dot(up)));
+  if (forward.lengthSq() < 1e-9) forward.set(0, 0, 1);
+  forward.normalize();
+  const lateral = new THREE.Vector3().crossVectors(up, forward).normalize();
+
+  // Leg swing happens around the lateral axis, expressed in each leg's parent space.
+  const legs = nodes.filter((o) => /^leg_(L|R)(F|R)_1/i.test(o.name)).map((leg, i) => {
+    const parentQ = leg.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+    return {
+      node: leg,
+      base: leg.quaternion.clone(),
+      axis: lateral.clone().applyQuaternion(parentQ).normalize(),
+      phase: (/F/.test(leg.name.slice(5, 6)) ? 0 : Math.PI) + (/L/.test(leg.name.slice(4, 5)) ? 0 : 0.6) + i * 0.37,
+    };
+  });
+
+  const noseNode = nodes.find((o) => /Red_Nose/i.test(o.name));
+  const nosePos = noseNode ? centerOf(noseNode) : null;
+
+  // Orient and scale into a wrapper.
+  const inner = new THREE.Group();
+  inner.add(scene);
+  scene.position.sub(sleighCenter);
+  const wrapper = new THREE.Group();
+  wrapper.add(inner);
+  inner.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(lateral, up, forward).invert());
+  const scale = 5.3 / Math.max(leadDist, 1e-6);
+  inner.scale.setScalar(scale);
+  inner.position.y = 0.4;
+
+  scene.traverse((o) => {
+    if (o.isMesh) {
+      o.frustumCulled = false;
+      if (o.material && 'roughness' in o.material) o.material.roughness = Math.max(0.35, o.material.roughness);
+    }
+  });
+
+  let noseGlow = null;
+  if (nosePos) {
+    noseGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTexture('255,40,40'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+    }));
+    const p = nosePos.clone().sub(sleighCenter).applyQuaternion(inner.quaternion).multiplyScalar(scale);
+    noseGlow.position.copy(p).add(inner.position);
+    wrapper.add(noseGlow);
+  }
+
+  // The model's extent and Santa's seat, for framing the Santa Cam angles.
+  wrapper.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(scene);
+  const santaNode = nodes.find((o) => /^Santa/i.test(o.name));
+  const frame = { min: box.min, max: box.max, santa: santaNode ? centerOf(santaNode) : new THREE.Vector3(0, 1.3, 0) };
+
+  const q = new THREE.Quaternion();
+  function animate(time, moving) {
+    const speed = moving ? 9 : 2.5;
+    const swing = moving ? 0.55 : 0.08;
+    for (const l of legs) {
+      q.setFromAxisAngle(l.axis, swing * Math.sin(time * speed + l.phase));
+      l.node.quaternion.copy(q).multiply(l.base);
+    }
+    inner.position.y = 0.4 + 0.05 * Math.sin(time * 2);
+    if (noseGlow) noseGlow.scale.setScalar(0.55 + 0.2 * Math.sin(time * 4));
+  }
+
+  return { object: wrapper, animate, frame };
 }
 
 const glowCache = {};

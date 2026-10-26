@@ -23,6 +23,7 @@
     <div class="actions">
       <button id="follow-btn" class="chip active">🎯 Following Santa</button>
       <button id="sleighcam-btn" class="chip">🎥 Sleigh cam</button>
+      <button id="santacam-btn" class="chip active">📺 Santa Cam</button>
       <label class="chip"><input id="route-toggle" type="checkbox" checked> Route</label>
       <button id="demo-btn" class="chip demo-chip">✨ Demo flight</button>
     </div>
@@ -52,6 +53,25 @@
     <h2>Recent stops</h2>
     <ul id="log"></ul>
   </aside>
+
+  <section id="santacam" class="santacam" aria-label="Live Santa Cam">
+    <div class="santacam-head">
+      <span class="rec">● LIVE</span>
+      <span class="santacam-title">Santa Cam · <span id="santacam-name"></span></span>
+      <button id="santacam-expand" class="icon-btn" title="Watch full screen" aria-label="Watch full screen">⤢</button>
+      <button id="santacam-close" class="icon-btn" title="Close" aria-label="Close Santa Cam">×</button>
+    </div>
+    <div class="santacam-view"><div id="santacam-caption" class="santacam-caption"></div></div>
+    <div class="santacam-angles">
+      <button class="chip" data-cam="chase">Chase</button>
+      <button class="chip" data-cam="rider">Santa’s view</button>
+      <button class="chip" data-cam="side">Side</button>
+      <button class="chip" data-cam="front">Reindeer</button>
+      <button class="chip" data-cam="top">Overhead</button>
+    </div>
+  </section>
+
+  <footer class="credits">Santa &amp; sleigh model: <a href="https://sketchfab.com/3d-models/santa-norad-santa-tracker-227766d4adc44aacaf90233c168984ac" target="_blank" rel="noopener">“Santa - NORAD Santa Tracker”</a> by <a href="https://sketchfab.com/tenslant44" target="_blank" rel="noopener">tenslant44</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></footer>
 
   <button id="mini-countdown" class="mini-countdown" hidden></button>
 

@@ -60,7 +60,27 @@ body.sleighcam .tracker, body.sleighcam .log-panel { opacity: 0.88; }
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
 }
 .tracker { left: 16px; top: 76px; width: 340px; max-height: calc(100vh - 100px); overflow: auto; }
-.log-panel { right: 16px; top: 76px; width: 260px; max-height: calc(100vh - 160px); overflow: auto; }
+.log-panel { right: 16px; top: 76px; width: 340px; max-height: calc(100vh - 76px - 330px); overflow: auto; }
+
+.santacam { position: fixed; z-index: 4; right: 16px; bottom: 34px; width: 340px; border-radius: 14px; overflow: hidden;
+  background: rgba(9, 20, 48, 0.85); border: 1px solid var(--panel-border); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
+.santacam[hidden] { display: none; }
+.santacam-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; font-size: 12px; font-weight: 700; }
+.santacam-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rec { color: #ff5a5a; letter-spacing: 0.06em; animation: blink 1.4s infinite; }
+@keyframes blink { 50% { opacity: 0.35; } }
+.icon-btn { background: none; border: 0; padding: 0 6px; font-size: 16px; line-height: 1; color: var(--muted); }
+.icon-btn:hover { color: #fff; }
+/* Transparent hole: the 3D view is drawn onto the globe canvas underneath. */
+.santacam-view { position: relative; aspect-ratio: 16 / 9; background: transparent; outline: 2px solid rgba(255, 210, 87, 0.5); outline-offset: -2px; }
+.santacam { background: linear-gradient(rgba(9, 20, 48, 0.85), rgba(9, 20, 48, 0.85)) top / 100% 30px no-repeat, linear-gradient(rgba(9, 20, 48, 0.85), rgba(9, 20, 48, 0.85)) bottom / 100% 40px no-repeat; backdrop-filter: none; }
+.santacam-caption { position: absolute; left: 8px; bottom: 6px; font-size: 12px; font-weight: 600; text-shadow: 0 1px 3px #000; }
+.santacam-angles { display: flex; gap: 4px; padding: 6px 8px; overflow-x: auto; }
+.santacam-angles .chip { padding: 3px 8px; font-size: 11px; }
+.credits { position: fixed; z-index: 4; right: 16px; bottom: 8px; font-size: 10px; color: var(--muted); }
+.credits a { color: var(--muted); }
+body.demo .credits { display: none; }
+body.demo .santacam { bottom: 92px; }
 .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
 .gift-box { text-align: center; padding: 10px; border-radius: 12px; background: linear-gradient(135deg, rgba(230, 57, 70, 0.35), rgba(31, 122, 58, 0.35)); }
 .gifts { font-size: 34px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; text-shadow: 0 0 18px rgba(255, 210, 87, 0.45); }
@@ -118,6 +138,7 @@ body.demo .demo-chip { background: rgba(138, 79, 255, 0.35); }
 
 @media (max-width: 900px) {
   .log-panel { display: none; }
+  .santacam { width: 280px; }
 }
 @media (max-width: 640px) {
   .topbar { flex-wrap: wrap; padding: 8px 16px; gap: 6px; }
@@ -138,7 +159,12 @@ body.demo .demo-chip { background: rgba(138, 79, 255, 0.35); }
   .cd-grid span { font-size: 28px; }
   .cd-card h2 { font-size: 26px; }
   .mini-countdown { bottom: auto; top: 96px; }
+  .santacam { top: 96px; bottom: auto; right: 16px; width: 220px; }
+  .santacam-head { font-size: 11px; gap: 4px; }
+  body.demo .santacam { bottom: auto; }
+  .santacam-angles .chip { padding: 2px 6px; font-size: 10px; }
+  .credits { left: 16px; right: auto; bottom: 2px; font-size: 9px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .badge.live, .cd-icon, #log li, .tag.santa span { animation: none; }
+  .badge.live, .cd-icon, #log li, .tag.santa span, .rec { animation: none; }
 }
