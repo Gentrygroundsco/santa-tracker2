@@ -32,8 +32,7 @@ export function interpolate(a, b, f) {
 const localMidnight = (year, offset) => Date.UTC(year, 11, 25) - offset * HOUR;
 
 // Santa reaches every stop at about local midnight. Stops that share a time
-// zone are visited east to west, spread across the time before the next zone
-// starts (at most an hour).
+// zone are spread across the time before the next zone starts (at most an hour).
 export function buildSchedule(year) {
   const stops = STOPS.map(([name, region, lat, lng, offset, pop]) => {
     // Unwrap longitudes across the date line so "east to west" works there.
@@ -49,7 +48,11 @@ export function buildSchedule(year) {
     const start = localMidnight(year, offset);
     const next = i + 1 < offsets.length ? localMidnight(year, offsets[i + 1]) : start + HOUR;
     const window = Math.min(HOUR, next - start);
-    const group = stops.filter((s) => s.offset === offset).sort((a, b) => b.sortLng - a.sortLng);
+    // Sweep each time zone north to south (or south to north), whichever end
+    // is closer to where Santa just was, so the route doesn't zig-zag.
+    const group = stops.filter((s) => s.offset === offset).sort((a, b) => b.lat - a.lat || b.sortLng - a.sortLng);
+    const prev = ordered[ordered.length - 1] || NORTH_POLE;
+    if (distanceKm(prev, group[group.length - 1]) < distanceKm(prev, group[0])) group.reverse();
     const slot = window / group.length;
     group.forEach((s, j) => {
       s.arrive = start + j * slot;

@@ -2,14 +2,15 @@
 
 A NORAD-style Santa tracker on a live 3D globe, hosted for free on Cloudflare Workers.
 
-- **3D globe** with real day and night shading, city lights, drifting clouds and falling snow
+- **3D globe** with real day and night shading, city lights and drifting clouds
 - **3D sleigh** with Santa and nine galloping reindeer (Rudolph's nose glows), trailing sparkles
 - **Live Santa Cam**: a picture-in-picture camera on the sleigh with five angles (Chase, Santa's view, Side, Reindeer, Overhead); expand any of them to full screen
-- **Gift tracker** counting up to 7.3 billion presents, plus stops visited, distance, speed and cookies eaten
-- **Next stop** with a live arrival countdown, and the **final destination** (Pago Pago, then home to the North Pole)
-- **Real route timing**: 240 stops, each reached at about local midnight. Santa leaves the North Pole at 09:00 UTC on December 24, reaches Kiritimati at 10:00 UTC and lands home at about 12:18 UTC on December 25
-- **Countdown** to takeoff the rest of the year, with a **demo flight** you can watch any time (60× to 1800× speed, with a timeline you can scrub)
-- **Sleigh cam**: puts the Santa Cam full screen (drag to swing around the sleigh)
+- **Gift tracker** counting up to 7.3 billion presents, plus stops visited, distance flown, ground speed and the local time where Santa is
+- **Next stop** with a live arrival countdown, and the **final destination** (then home to the North Pole)
+- Places Santa has already visited are marked with small dots
+- **Real route timing**: 240 stops, each reached at about local midnight, sweeping through one time zone at a time. Santa leaves the North Pole at 09:00 UTC on December 24, reaches Kiritimati at 10:00 UTC and lands home at about 12:18 UTC on December 25
+- **Countdown** to takeoff the rest of the year, with a **flight simulation** you can watch any time. It runs at real speed by default (5×, 20× and 60× are optional) and has a timeline you can scrub
+- **Sleigh view**: puts the camera right behind the sleigh, full screen (drag to swing around it)
 - **When does Santa reach me?** uses the browser's location to find your nearest stop
 
 ## Run it locally
@@ -22,7 +23,7 @@ npm test
 
 Handy URLs while developing:
 
-- `/?demo` starts the demo flight (`&speed=600` to change speed)
+- `/?demo` starts the flight simulation (`&speed=20` to speed it up)
 - `/?t=2026-12-24T23:10:00Z` pretends it is that moment, to preview the live tracker
 
 ## Deploy to Cloudflare (free plan)

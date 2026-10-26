@@ -5,10 +5,10 @@ import { buildSchedule, santaState, seasonYear, sunPosition, TOTAL_GIFTS } from 
 const s = buildSchedule(2026);
 const stops = s.points.slice(1, -1);
 
-test('route starts on Kiritimati at its local midnight and ends in Pago Pago', () => {
+test('route starts on Kiritimati at its local midnight and ends in the last time zone', () => {
   assert.equal(stops[0].name, 'Kiritimati');
   assert.equal(new Date(stops[0].arrive).toISOString(), '2026-12-24T10:00:00.000Z');
-  assert.equal(s.finalStop.name, 'Pago Pago');
+  assert.equal(s.finalStop.offset, -11);
   assert.ok(s.landing <= Date.UTC(2026, 11, 25, 13));
 });
 
@@ -44,4 +44,9 @@ test('sun is over the southern hemisphere at Christmas', () => {
   const sun = sunPosition(Date.UTC(2026, 11, 25, 12));
   assert.ok(sun.lat < -23 && sun.lat > -24);
   assert.ok(Math.abs(sun.lng) < 2);
+});
+
+test('route sweeps each time zone instead of zig-zagging', () => {
+  const total = s.points[s.points.length - 1].distCum;
+  assert.ok(total < 450000, `route is ${Math.round(total)} km`);
 });

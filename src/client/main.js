@@ -2,7 +2,6 @@ import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { buildSchedule, santaState, seasonYear, sunPosition, distanceKm } from './schedule.js';
 import { createSleigh, createTrail, loadSleighModel } from './sleigh.js';
-import { startSnow } from './snow.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -17,7 +16,7 @@ const clock = {
   pinnedOffset: params.has('t') ? Date.parse(params.get('t')) - Date.now() : 0,
   demo: false,
   demoTime: 0,
-  speed: Number(params.get('speed')) || 120,
+  speed: Number(params.get('speed')) || 1,
   paused: false,
   now() { return this.demo ? this.demoTime : Date.now() + this.serverOffset + this.pinnedOffset; },
 };
@@ -55,12 +54,12 @@ const dayNight = new THREE.ShaderMaterial({
       float light = dot(normalize(vNormal), normalize(sunDirection));
       vec3 day = texture2D(dayTexture, vUv).rgb;
       vec3 night = texture2D(nightTexture, vUv).rgb;
-      // City lights glow warm on Christmas Eve, with a hint of the land beneath.
-      vec3 nightSide = night * vec3(1.6, 1.35, 1.0) + day * 0.12;
-      float blend = smoothstep(-0.12, 0.12, light);
+      // City lights on the night side, with a faint hint of the land beneath.
+      vec3 nightSide = night * vec3(1.25, 1.12, 0.95) + day * 0.05;
+      float blend = smoothstep(-0.1, 0.1, light);
       vec3 color = mix(nightSide, day, blend);
-      // Rosy twilight band along the terminator.
-      color += vec3(0.35, 0.12, 0.05) * (1.0 - abs(light) / 0.12) * step(abs(light), 0.12) * 0.5;
+      // Soft warm scattering along the terminator.
+      color += vec3(0.18, 0.08, 0.03) * (1.0 - smoothstep(0.0, 0.1, abs(light))) * 0.35;
       gl_FragColor = vec4(color, 1.0);
     }`,
 });
@@ -69,31 +68,21 @@ const globe = new Globe($('globe'), { animateIn: true })
   .backgroundImageUrl('/img/night-sky.png')
   .globeMaterial(dayNight)
   .showAtmosphere(true)
-  .atmosphereColor('#9fc7ff')
-  .atmosphereAltitude(0.2)
+  .atmosphereColor('#6fa8ff')
+  .atmosphereAltitude(0.16)
   .pointOfView({ lat: 50, lng: 0, altitude: 2.6 })
   // Stops
   .pointLat('lat').pointLng('lng')
-  .pointAltitude((p) => (p.visited ? 0.012 : 0.004))
-  .pointRadius((p) => (p.visited ? 0.32 : 0.16))
-  .pointColor((p) => (p.visited ? '#ffd257' : 'rgba(255,255,255,0.75)'))
+  .pointAltitude(0.002)
+  .pointRadius((p) => (p.visited ? 0.18 : 0.1))
+  .pointColor((p) => (p.visited ? '#f0b429' : 'rgba(255,255,255,0.55)'))
   .pointsTransitionDuration(0)
   .pointLabel((p) => stopTooltip(p))
-  // Santa's path so far (solid) and the route still ahead (dashed)
-  .pathPoints('coords').pathPointLat((c) => c[0]).pathPointLng((c) => c[1])
-  .pathColor((p) => p.color)
-  .pathStroke((p) => p.stroke)
-  .pathDashLength((p) => p.dash)
-  .pathDashGap((p) => p.gap)
-  .pathDashAnimateTime((p) => p.animate)
-  .pathTransitionDuration(0)
-  .pathResolution(1)
   // Pulsing ring on the next stop
-  .ringColor(() => (t) => `rgba(255,70,70,${1 - t})`)
-  .ringMaxRadius(3.5)
-  .ringPropagationSpeed(2.5)
-  .ringRepeatPeriod(900)
-  ;
+  .ringColor(() => (t) => `rgba(229,56,59,${0.8 * (1 - t)})`)
+  .ringMaxRadius(1.6)
+  .ringPropagationSpeed(1.2)
+  .ringRepeatPeriod(1400);
 
 const controls = globe.controls();
 controls.enableDamping = true;
@@ -134,7 +123,7 @@ loadSleighModel('/models/santa-sleigh.glb')
 function resize() {
   globe.width(window.innerWidth).height(window.innerHeight);
   // On phones the tracker panel covers the bottom, so lift the globe up.
-  globe.globeOffset([0, window.innerWidth <= 640 ? -window.innerHeight * 0.2 : 0]);
+  globe.globeOffset([0, window.innerWidth <= 640 ? -window.innerHeight * 0.04 : 0]);
 }
 window.addEventListener('resize', resize);
 resize();
@@ -143,7 +132,7 @@ resize();
 // Each angle places a camera relative to the sleigh: P is its position, f its
 // heading, u straight up, r to its side, and s the sleigh's current size.
 const CAM_ANGLES = {
-  chase: { label: 'Chase', place: (F, L, H) => [[0, F.max.y + 0.08 * L, F.min.z - 0.25 * L], [0, 0.55 * H, F.min.z + 0.6 * L], 'u'] },
+  chase: { label: 'Chase', place: (F, L, H) => [[0, F.max.y + 0.16 * L, F.min.z - 0.5 * L], [0, 0.4 * H, F.min.z + 0.65 * L], 'u'] },
   rider: { label: 'Santa’s view', place: (F, L, H) => [[0, F.max.y + 0.2 * H, F.santa.z - 0.04 * L], [0, F.santa.y + 0.1 * H, F.max.z + 0.3 * L], 'u'] },
   side: { label: 'Side', place: (F, L, H) => [[0.78 * L, 0.65 * H, F.min.z + 0.5 * L], [0, 0.45 * H, F.min.z + 0.5 * L], 'u'] },
   front: { label: 'Reindeer', place: (F, L, H) => [[0.12 * L, 0.8 * H, F.max.z + 0.22 * L], [0, 0.45 * H, F.santa.z + 0.1 * L], 'u'] },
@@ -166,6 +155,7 @@ let pipAngle = 'side';
 // 'follow': globe view that keeps Santa centred. 'free': the user spins the
 // globe. 'sleigh': a chase camera riding just behind the sleigh.
 let camMode = 'follow';
+const setPressed = (btn, on) => { btn.classList.toggle('active', on); btn.setAttribute('aria-pressed', String(on)); };
 let camYaw = 0;
 const followBtn = $('follow-btn');
 const sleighBtn = $('sleighcam-btn');
@@ -173,9 +163,8 @@ function setCamMode(mode) {
   const leavingSleigh = camMode === 'sleigh' && mode !== 'sleigh';
   camMode = mode;
   lastVisited = -2;
-  followBtn.classList.toggle('active', mode === 'follow');
-  followBtn.textContent = mode === 'follow' ? '🎯 Following Santa' : '🎯 Follow Santa';
-  sleighBtn.classList.toggle('active', mode === 'sleigh');
+  setPressed(followBtn, mode === 'follow');
+  setPressed(sleighBtn, mode === 'sleigh');
   document.body.classList.toggle('sleighcam', mode === 'sleigh');
   if (mode === 'sleigh') {
     controls.enabled = false;
@@ -211,6 +200,8 @@ const tags = {
   next: makeTag('tag next'),
   final: makeTag('tag final'),
 };
+// The Santa marker sits with its dot on the point; the others sit just above it.
+tags.santa.anchor = 'translate(-50%, calc(-100% + 9px))';
 function makeTag(className) {
   const el = document.createElement('div');
   el.className = className;
@@ -230,10 +221,11 @@ function placeTag(el, worldPos, opacity = 1) {
   projected.copy(worldPos).project(cam);
   const visible = facing > 0.05 && projected.z < 1 && opacity > 0.02;
   el.style.opacity = visible ? opacity : 0;
-  if (!visible) return;
+  if (!visible) return null;
   const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
   const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
-  el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+  el.style.transform = `translate(${x}px, ${y}px) ${el.anchor || 'translate(-50%, -100%)'}`;
+  return { x, y };
 }
 
 // ---------- Route layers ----------
@@ -242,8 +234,8 @@ let lastRouteYear = null;
 
 function stopTooltip(p) {
   const when = new Date(p.arrive).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const gifts = p.visited ? `<br>🎁 ${Math.round(p.gifts).toLocaleString()} gifts delivered` : '';
-  return `<div class="tip"><b>${p.name}</b><br>${p.region}<br>${p.visited ? 'Visited' : 'Arrives'} ${when} (your time)${gifts}</div>`;
+  const gifts = p.visited ? `<br>${Math.round(p.gifts).toLocaleString()} gifts delivered` : '';
+  return `<div class="tip"><b>${p.name}</b>, ${p.region}<br>${p.visited ? 'Visited' : 'Arrives'} ${when} your time${gifts}</div>`;
 }
 
 function updateRouteLayers(state, force) {
@@ -253,31 +245,24 @@ function updateRouteLayers(state, force) {
   const stops = schedule.points.slice(1, -1);
   stops.forEach((p) => { p.visited = p.index <= state.visited && state.phase !== 'prelaunch'; });
   // Stop markers turn into big pillars up close, so the sleigh cam hides them.
-  globe.pointsData(camMode === 'sleigh' ? [] : stops);
+  // Places Santa has visited show as small dots (no route lines); "Full route" adds the stops ahead.
+  globe.pointsData(camMode === 'sleigh' ? [] : showRoute ? stops : stops.filter((p) => p.visited));
 
   const next = state.next && !state.next.home ? state.next : null;
   globe.ringsData(next ? [next] : []);
 
   const final = schedule.finalStop;
-  setTag(tags.pole, schedule.points[0], '❄️ North Pole');
-  setTag(tags.next, next && next !== final ? next : null, next ? `➡️ Next: ${next.name}` : '');
-  setTag(tags.final, final, next === final ? `🏁 Next & final: ${final.name}` : `🏁 Final stop: ${final.name}`);
-  updatePaths(state);
+  setTag(tags.pole, schedule.points[0], 'NORTH POLE');
+  setTag(tags.next, next && next !== final ? next : null, next ? `NEXT  ${next.name}` : '');
+  setTag(tags.final, final, next === final ? `NEXT & FINAL  ${final.name}` : `FINAL  ${final.name}`);
 }
 
-function updatePaths(state) {
-  const pts = schedule.points;
-  const done = state.phase === 'prelaunch' ? [] : pts.slice(0, state.visited + 1).map((p) => [p.lat, p.lng]);
-  const here = [state.lat, state.lng];
-  const paths = [];
-  if (done.length) paths.push({ coords: [...done, here], color: ['#ff4d4d', '#ffd257'], stroke: 0.6, dash: 1, gap: 0, animate: 0 });
-  if ($('route-toggle').checked && state.phase !== 'landed') {
-    const ahead = pts.slice(state.visited + 1).map((p) => [p.lat, p.lng]);
-    paths.push({ coords: [here, ...ahead], color: 'rgba(255,255,255,0.35)', stroke: 0.25, dash: 0.4, gap: 0.6, animate: 0 });
-  }
-  globe.pathsData(paths);
-}
-$('route-toggle').addEventListener('change', () => updateRouteLayers(santaState(schedule, clock.now()), true));
+let showRoute = false;
+$('route-btn').addEventListener('click', () => {
+  showRoute = !showRoute;
+  setPressed($('route-btn'), showRoute);
+  updateRouteLayers(santaState(schedule, clock.now()), true);
+});
 
 // ---------- Panel ----------
 const fmtInt = (n) => Math.floor(n).toLocaleString();
@@ -289,52 +274,85 @@ const fmtDuration = (ms) => {
   return `${m}m ${sec.toString().padStart(2, '0')}s`;
 };
 const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-const place = (p) => (p.home ? 'the North Pole' : `${p.name}, ${p.region}`);
+const place = (p) => (p.home ? 'North Pole' : `${p.name}, ${p.region}`);
 const metric = !['en-US', 'en-LR', 'my'].includes(navigator.language);
 const fmtDist = (km) => (metric ? `${fmtInt(km)} km` : `${fmtInt(km * 0.621371)} mi`);
 const fmtSpeed = (kmh) => (metric ? `${fmtInt(kmh)} km/h` : `${fmtInt(kmh * 0.621371)} mph`);
 
+const fmtClock = (t, offsetHours) => {
+  const d = new Date(t + offsetHours * 3600e3);
+  let h = d.getUTCHours();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${String(d.getUTCMinutes()).padStart(2, '0')} ${ampm}`;
+};
+const fmtZone = (offset) => {
+  if (offset === 0) return 'UTC';
+  const sign = offset > 0 ? '+' : '−';
+  const a = Math.abs(offset);
+  const m = Math.round((a % 1) * 60);
+  return `UTC${sign}${Math.floor(a)}${m ? `:${String(m).padStart(2, '0')}` : ''}`;
+};
+const coords = (lat, lng) => `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(2)}° ${lng >= 0 ? 'E' : 'W'}`;
+
 function renderPanel(state, t) {
   const { phase } = state;
   document.body.dataset.phase = phase;
-  $('mode-badge').textContent = clock.demo ? 'DEMO' : phase === 'prelaunch' ? 'COUNTDOWN' : phase === 'landed' ? 'HOME' : 'LIVE';
-  $('mode-badge').className = `badge ${clock.demo ? 'demo' : phase === 'prelaunch' || phase === 'landed' ? 'idle' : 'live'}`;
-  $('clock').textContent = new Date(t).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  const [pillText, pillClass] = clock.demo ? ['SIMULATION', 'sim']
+    : phase === 'prelaunch' ? ['PRE-FLIGHT', 'pre']
+    : phase === 'landed' ? ['FLIGHT COMPLETE', 'done'] : ['LIVE TRACKING', 'live'];
+  $('mode-text').textContent = pillText;
+  $('mode-badge').className = `status-pill ${pillClass}`;
+  $('season-year').textContent = schedule.year;
+  $('clock-utc').textContent = `${new Date(t).toISOString().slice(11, 19)} UTC`;
+  $('clock-local').textContent = new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
   let status;
-  if (phase === 'prelaunch') status = 'Santa is at the North Pole getting the sleigh ready.';
-  else if (phase === 'landed') status = 'Santa is safely home at the North Pole. Merry Christmas!';
-  else if (phase === 'delivering') status = `Delivering presents in <b>${place(state.current)}</b>`;
-  else status = `Flying from <b>${place(state.prev)}</b> to <b>${place(state.next)}</b>`;
+  if (phase === 'prelaunch') status = 'Santa is at the North Pole preparing for departure.';
+  else if (phase === 'landed') status = 'Santa has returned to the North Pole. Every stop has been delivered.';
+  else if (phase === 'delivering') status = `Delivering gifts in <b>${place(state.current)}</b>`;
+  else if (state.prev.home) status = `Departed the North Pole, en route to <b>${place(state.next)}</b>`;
+  else if (state.next.home) status = `Heading home to <b>the North Pole</b>`;
+  else status = `En route from <b>${state.prev.name}</b> to <b>${state.next.name}</b>`;
   $('status').innerHTML = status;
-  $('santacam-caption').textContent = phase === 'prelaunch' ? 'North Pole · sleigh loading'
-    : phase === 'landed' ? 'North Pole · home safe'
-    : phase === 'delivering' ? `Delivering in ${state.current.name}` : `En route to ${state.next.name}`;
+  $('santacam-caption').textContent = phase === 'prelaunch' ? 'North Pole · Pre-flight'
+    : phase === 'landed' ? 'North Pole · Landed'
+    : phase === 'delivering' ? `Over ${state.current.name}` : `En route to ${state.next.name}`;
 
-  $('location').textContent = phase === 'flying'
-    ? `${Math.abs(state.lat).toFixed(2)}°${state.lat >= 0 ? 'N' : 'S'}, ${Math.abs(state.lng).toFixed(2)}°${state.lng >= 0 ? 'E' : 'W'}`
-    : place(state.current || (phase === 'prelaunch' || phase === 'landed' ? schedule.points[0] : state.prev));
+  // Where Santa is now
+  const here = state.current || (phase === 'flying' ? null : schedule.points[0]);
+  $('location').textContent = here ? place(here) : coords(state.lat, state.lng);
+  $('location-sub').textContent = phase === 'delivering' ? 'Delivering gifts'
+    : phase === 'flying' ? `In flight from ${state.prev.home ? 'the North Pole' : state.prev.name}`
+    : phase === 'prelaunch' ? 'Pre-flight checks' : 'Landed';
 
   if (state.next) {
     $('next-stop').textContent = place(state.next);
     $('next-eta').textContent = `Arrives in ${fmtDuration(state.next.arrive - t)} · ${fmtTime(state.next.arrive)} your time`;
   } else {
-    $('next-stop').textContent = 'Home sweet home';
-    $('next-eta').textContent = 'All stops complete';
+    $('next-stop').textContent = 'None';
+    $('next-eta').textContent = 'All deliveries complete';
   }
   const final = schedule.finalStop;
   $('final-stop').textContent = place(final);
   $('final-eta').textContent = t < final.arrive
     ? `In ${fmtDuration(final.arrive - t)}, then home to the North Pole`
-    : t < schedule.landing ? `Delivered! Landing at the North Pole in ${fmtDuration(schedule.landing - t)}` : 'Delivered!';
+    : t < schedule.landing ? `Delivered. North Pole landing in ${fmtDuration(schedule.landing - t)}` : 'Delivered';
 
   const totalStops = schedule.points.length - 2;
   const visited = phase === 'prelaunch' ? 0 : Math.min(totalStops, state.visited);
-  $('stops-count').textContent = `${visited} / ${totalStops}`;
+  const pct = phase === 'landed' ? 100 : (100 * (t - schedule.takeoff)) / (schedule.landing - schedule.takeoff);
+  $('progress-pct').textContent = `${Math.max(0, Math.min(100, pct)).toFixed(phase === 'flying' || phase === 'delivering' ? 1 : 0)}%`;
+  $('progress-bar').style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  $('stops-count').textContent = `${visited} of ${totalStops} stops`;
   $('distance').textContent = fmtDist(state.distance);
-  $('speed').textContent = phase === 'flying' ? fmtSpeed(state.speed) : phase === 'delivering' ? 'Landed' : '0';
-  $('cookies').textContent = fmtInt(state.gifts / 2650);
-  $('progress-bar').style.width = `${(visited / totalStops) * 100}%`;
+  $('speed').textContent = phase === 'flying' ? fmtSpeed(state.speed) : phase === 'delivering' ? 'Stationary' : '0';
+
+  // Local time where Santa is: the zone of the stop he is at or flying to.
+  const zoneStop = state.current || (phase === 'flying' && !state.next.home ? state.next : null);
+  const offset = zoneStop ? zoneStop.offset : 0;
+  $('santa-time').textContent = fmtClock(t, offset);
+  $('santa-zone').textContent = zoneStop ? fmtZone(offset) : 'UTC';
 
   renderCountdown(state, t);
   renderLog(state);
@@ -347,8 +365,9 @@ function renderLog(state) {
   const end = state.phase === 'prelaunch' ? 0 : Math.min(state.visited, schedule.points.length - 2);
   const recent = schedule.points.slice(Math.max(1, end - 11), end + 1).filter((p) => !p.home).reverse();
   $('log').innerHTML = recent.length
-    ? recent.map((p) => `<li><span class="log-place">${p.name}<small>${p.region}</small></span><span class="log-gifts">🎁 ${fmtInt(p.gifts)}</span></li>`).join('')
-    : '<li class="empty">No stops yet. Santa takes off on Christmas Eve.</li>';
+    ? recent.map((p) => `<li><span class="log-place">${p.name}</span><span class="log-gifts">${fmtInt(p.gifts)}</span>`
+      + `<span class="log-meta">${p.region}</span><span class="log-time">${fmtClock(p.arrive, p.offset)} local</span></li>`).join('')
+    : '<li class="empty">No deliveries yet. Tracking begins when Santa departs on Christmas Eve.</li>';
 }
 
 function renderCountdown(state, t) {
@@ -357,21 +376,22 @@ function renderCountdown(state, t) {
   overlay.hidden = overlayDismissed;
   $('mini-countdown').hidden = !overlayDismissed;
   if (state.phase === 'prelaunch') {
-    $('cd-title').textContent = 'Santa launches from the North Pole in';
+    $('cd-kicker').textContent = 'Departure from the North Pole';
+    $('cd-title').textContent = 'Santa takes off in';
     const ms = schedule.takeoff - t;
     const s = Math.max(0, Math.floor(ms / 1000));
     $('cd-days').textContent = Math.floor(s / 86400);
     $('cd-hours').textContent = String(Math.floor((s % 86400) / 3600)).padStart(2, '0');
     $('cd-mins').textContent = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
     $('cd-secs').textContent = String(s % 60).padStart(2, '0');
-    $('cd-sub').textContent = `Takeoff: ${new Date(schedule.takeoff).toLocaleString([], { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })} your time`;
-    $('mini-countdown').textContent = `🚀 Takeoff in ${fmtDuration(ms)}`;
+    $('cd-sub').textContent = `Scheduled departure: ${new Date(schedule.takeoff).toLocaleString([], { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })} your time. Live tracking starts automatically.`;
+    $('mini-countdown').textContent = `Departure in ${fmtDuration(ms)}`;
   } else {
-    $('cd-title').textContent = 'Santa made it home!';
-    $('cd-days').textContent = '🎄';
-    $('cd-hours').textContent = $('cd-mins').textContent = $('cd-secs').textContent = '--';
-    $('cd-sub').textContent = `${fmtInt(state.gifts)} gifts delivered to ${schedule.points.length - 2} stops. See you next Christmas Eve!`;
-    $('mini-countdown').textContent = '🎄 Santa is home';
+    $('cd-kicker').textContent = 'Flight complete';
+    $('cd-title').textContent = 'Santa is back at the North Pole';
+    $('cd-days').textContent = $('cd-hours').textContent = $('cd-mins').textContent = $('cd-secs').textContent = '--';
+    $('cd-sub').textContent = `${fmtInt(state.gifts)} gifts delivered across ${schedule.points.length - 2} stops. Tracking returns next Christmas Eve.`;
+    $('mini-countdown').textContent = 'Flight complete';
   }
 }
 
@@ -384,8 +404,10 @@ function startDemo() {
   clock.demo = true;
   clock.paused = false;
   schedule = buildSchedule(seasonYear(Date.now() + clock.serverOffset + clock.pinnedOffset));
-  clock.demoTime = schedule.takeoff - 20e3;
+  // Start just before the first delivery so there is something to watch right away.
+  clock.demoTime = schedule.points[1].arrive - 45e3;
   document.body.classList.add('demo');
+  setPressed($('demo-btn'), true);
   $('scrub').min = schedule.takeoff - 60e3;
   $('scrub').max = schedule.landing + 60e3;
   if (camMode === 'free') setCamMode('follow');
@@ -395,6 +417,7 @@ function startDemo() {
 function stopDemo() {
   clock.demo = false;
   document.body.classList.remove('demo');
+  setPressed($('demo-btn'), false);
   schedule = buildSchedule(seasonYear(clock.now()));
   lastVisited = lastLogVisited = -2;
   const url = new URL(location.href);
@@ -410,7 +433,8 @@ $('demo-btn').addEventListener('click', () => (clock.demo ? stopDemo() : startDe
 $('demo-exit').addEventListener('click', stopDemo);
 $('demo-play').addEventListener('click', () => {
   clock.paused = !clock.paused;
-  $('demo-play').textContent = clock.paused ? '▶' : '⏸';
+  $('demo-play').innerHTML = `<svg><use href="#i-${clock.paused ? 'play' : 'pause'}"/></svg>`;
+  $('demo-play').setAttribute('aria-label', clock.paused ? 'Play' : 'Pause');
 });
 document.querySelectorAll('[data-speed]').forEach((b) => b.addEventListener('click', () => setSpeed(Number(b.dataset.speed))));
 $('scrub').addEventListener('input', (e) => { clock.demoTime = Number(e.target.value); lastVisited = -2; });
@@ -425,8 +449,8 @@ $('near-btn').addEventListener('click', () => {
     const me = { lat: coords.latitude, lng: coords.longitude };
     const stops = schedule.points.slice(1, -1);
     const nearest = stops.reduce((best, p) => (distanceKm(me, p) < distanceKm(me, best) ? p : best), stops[0]);
-    out.innerHTML = `Your nearest stop is <b>${nearest.name}</b> (${fmtDist(distanceKm(me, nearest))} away). Santa arrives around <b>${new Date(nearest.arrive).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</b> your time. Be asleep!`;
-  }, () => { out.textContent = 'We couldn’t get your location, but Santa arrives everywhere around local midnight.'; }, { timeout: 10000 });
+    out.innerHTML = `Your nearest stop is <b>${nearest.name}</b>, ${fmtDist(distanceKm(me, nearest))} away. Santa is expected around <b>${new Date(nearest.arrive).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</b> your time.`;
+  }, () => { out.textContent = 'Location unavailable. Santa reaches each area at about local midnight.'; }, { timeout: 10000 });
 });
 
 // ---------- Santa Cam window ----------
@@ -485,8 +509,11 @@ function renderSantaCam(P, f, u, r, s, dt) {
   renderer.setScissorTest(true);
   renderer.setScissor(rect.left, y, rect.width, rect.height);
   renderer.setViewport(rect.left, y, rect.width, rect.height);
+  // The halo and sparkles are sized for the main view and look like blobs up close.
   sleigh.showHalo(false);
+  trail.object.visible = false;
   renderer.render(globe.scene(), pipCam);
+  trail.object.visible = true;
   sleigh.showHalo(camMode !== 'sleigh');
   renderer.setScissorTest(false);
   renderer.setViewport(0, 0, pipSize.x, pipSize.y);
@@ -497,7 +524,6 @@ const tmp = { pos: new THREE.Vector3(), target: new THREE.Vector3(), up: new THR
 const vec = (c) => new THREE.Vector3(c.x, c.y, c.z);
 let lastFrame = performance.now();
 let lastPanel = 0;
-let lastPath = 0;
 let elapsed = 0;
 
 function frame(nowMs) {
@@ -510,6 +536,7 @@ function frame(nowMs) {
     if (clock.demoTime > schedule.landing + 90e3) clock.demoTime = schedule.takeoff - 20e3;
     $('scrub').value = clock.demoTime;
   }
+  if (clock.demo) $('scrub-time').textContent = `${new Date(clock.demoTime).toISOString().slice(5, 16).replace('T', ' ')} UTC`;
   const t = clock.now();
   if (!clock.demo && seasonYear(t) !== schedule.year) schedule = buildSchedule(seasonYear(t));
   const state = santaState(schedule, t);
@@ -521,7 +548,7 @@ function frame(nowMs) {
 
   // Camera distance decides how big Santa is drawn, so he stays visible from space.
   const camDist = globe.camera().position.length();
-  const scale = camMode === 'sleigh' ? 0.8 : THREE.MathUtils.clamp((camDist - R) * 0.018, 0.12, 5);
+  const scale = camMode === 'sleigh' ? 0.8 : THREE.MathUtils.clamp((camDist - R) * 0.009, 0.12, 2.2);
   const alt = (1.5 + scale * 1.2) / R;
 
   // Place and orient the sleigh toward where it is heading.
@@ -547,9 +574,9 @@ function frame(nowMs) {
   // Sparkles stream off the back of the sleigh while it flies.
   if (moving || state.phase === 'delivering') {
     const back = tmp.pos.clone().addScaledVector(tmp.fwd, (sleigh.frame.min.z - 0.3) * scale).addScaledVector(tmp.up, 0.4 * scale);
-    for (let i = 0; i < (moving ? 3 : 1); i++) trail.emit(back, scale * (moving ? 0.6 : 1.2));
+    if (moving || Math.random() < 0.3) trail.emit(back, scale * 0.4);
   }
-  trail.update(dt, scale * 0.6);
+  trail.update(dt, scale * 0.35);
 
   // Keep the camera on Santa, easing toward him; the user's zoom is kept.
   if (camMode === 'sleigh') {
@@ -574,11 +601,14 @@ function frame(nowMs) {
   }
 
   // Screen tags: the Santa pin fades out once the 3D sleigh is big enough to see.
-  const pinOpacity = camMode === 'sleigh' ? 0 : THREE.MathUtils.clamp((camDist - R * 1.5) / (R * 0.6), 0, 1);
-  placeTag(tags.santa, tmp.pos, pinOpacity);
+  const pinOpacity = camMode === 'sleigh' ? 0 : THREE.MathUtils.clamp((camDist - R * 1.35) / (R * 0.4), 0, 1);
+  const santaAt = placeTag(tags.santa, tmp.pos, pinOpacity);
   for (const el of [tags.pole, tags.next, tags.final]) {
-    if (el.point) placeTag(el, vec(globe.getCoords(el.point.lat, el.point.lng, 0.01)), camMode === 'sleigh' ? 0.85 : 1);
-    else el.style.opacity = 0;
+    // The sleigh view is immersive, so map labels are hidden there.
+    if (!el.point || camMode === 'sleigh') { el.style.opacity = 0; continue; }
+    const at = placeTag(el, vec(globe.getCoords(el.point.lat, el.point.lng, 0.01)));
+    // Don't let a stop label sit on top of Santa's marker.
+    if (at && santaAt && pinOpacity > 0.5 && Math.hypot(at.x - santaAt.x, at.y - santaAt.y) < 70) el.style.opacity = 0;
   }
 
   renderSantaCam(tmp.pos, tmp.fwd, tmp.up, tmp.right, scale, dt);
@@ -589,12 +619,7 @@ function frame(nowMs) {
     renderPanel(state, t);
     updateRouteLayers(state);
   }
-  if (nowMs - lastPath > 1000 && state.phase === 'flying') {
-    lastPath = nowMs;
-    updatePaths(state);
-  }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-startSnow($('snow'));

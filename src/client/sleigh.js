@@ -137,9 +137,9 @@ export function createSleigh() {
 
   // A warm glow around the whole team so it is visible from far away.
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: glowTexture('255,210,120'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55,
+    map: glowTexture('255,210,120'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.3,
   }));
-  halo.scale.setScalar(7);
+  halo.scale.setScalar(5);
   halo.position.set(0, 0.6, 2.2);
   root.add(halo);
 
@@ -149,7 +149,7 @@ export function createSleigh() {
   root.add(light);
 
   function animate(time, moving) {
-    halo.material.opacity = 0.45 + 0.1 * Math.sin(time * 2.5);
+    halo.material.opacity = 0.25 + 0.05 * Math.sin(time * 2.5);
     if (model) { model.animate(time, moving); return; }
     const speed = moving ? 9 : 3;
     for (const d of deer) {
@@ -303,7 +303,7 @@ export function createTrail(count = 400) {
   const points = new THREE.Points(geo, material);
   points.frustumCulled = false;
   let cursor = 0;
-  const palette = [[1, 0.85, 0.4], [1, 1, 1], [1, 0.4, 0.4], [0.6, 0.9, 1]];
+  const palette = [[1, 0.9, 0.7], [0.85, 0.9, 1]];
 
   function emit(pos, spread) {
     const i = cursor;
@@ -317,11 +317,12 @@ export function createTrail(count = 400) {
   function update(dt, size) {
     material.size = size;
     for (let i = 0; i < count; i++) {
-      life[i] = Math.max(0, life[i] - dt * 0.8);
+      life[i] = Math.max(0, life[i] - dt * 0.6);
       const c = palette[i % palette.length];
-      colors[i * 3] = c[0] * life[i];
-      colors[i * 3 + 1] = c[1] * life[i];
-      colors[i * 3 + 2] = c[2] * life[i];
+      const a = 0.6 * life[i] * life[i];
+      colors[i * 3] = c[0] * a;
+      colors[i * 3 + 1] = c[1] * a;
+      colors[i * 3 + 2] = c[2] * a;
     }
     geo.attributes.position.needsUpdate = true;
     geo.attributes.color.needsUpdate = true;

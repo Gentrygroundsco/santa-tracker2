@@ -4,106 +4,152 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Santa Tracker</title>
-  <meta name="description" content="Follow Santa's sleigh around a live 3D globe on Christmas Eve, with a gift counter, his next stop and his final destination.">
-  <meta name="theme-color" content="#07122b">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎅</text></svg>">
+  <meta name="description" content="Follow Santa's sleigh live on a 3D globe on Christmas Eve: gifts delivered, his current position, next stop and final destination.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23c62828'/%3E%3Cpath d='M16 6l2.6 6.4 6.9.5-5.3 4.4 1.7 6.7L16 20.3 10.1 24l1.7-6.7-5.3-4.4 6.9-.5z' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body data-phase="prelaunch">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-track" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+      <symbol id="i-view" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-cam" viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/></symbol>
+      <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h8"/></symbol>
+      <symbol id="i-sim" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4h3v16H7zM14 4h3v16h-3z"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+      <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+    </defs>
+  </svg>
+
   <div id="globe" aria-label="3D globe showing Santa's position"></div>
-  <canvas id="snow" aria-hidden="true"></canvas>
-  <div id="tags" aria-hidden="true"><div id="santa-marker" class="tag santa"><span>🎅</span></div></div>
+  <div id="tags" aria-hidden="true">
+    <div id="santa-marker" class="santa-marker"><span class="santa-label">SANTA</span><span class="santa-dot"></span></div>
+  </div>
 
   <header class="topbar">
-    <div class="brand"><span class="logo">🎅</span><h1>Santa Tracker</h1><span id="mode-badge" class="badge idle">COUNTDOWN</span></div>
-    <div id="clock" class="clock"></div>
-    <div class="actions">
-      <button id="follow-btn" class="chip active">🎯 Following Santa</button>
-      <button id="sleighcam-btn" class="chip">🎥 Sleigh cam</button>
-      <button id="santacam-btn" class="chip active">📺 Santa Cam</button>
-      <label class="chip"><input id="route-toggle" type="checkbox" checked> Route</label>
-      <button id="demo-btn" class="chip demo-chip">✨ Demo flight</button>
+    <div class="brand">
+      <span class="logo"><svg><use href="#i-star"/></svg></span>
+      <div>
+        <div class="wordmark">SANTA TRACKER</div>
+        <div class="brand-sub">Christmas Eve <span id="season-year"></span> · Global flight</div>
+      </div>
     </div>
+    <div class="status-block">
+      <span id="mode-badge" class="status-pill"><span class="pulse"></span><span id="mode-text">PRE-FLIGHT</span></span>
+      <span class="clocks"><span id="clock-utc" class="mono"></span><span id="clock-local" class="mono muted"></span></span>
+    </div>
+    <nav class="toolbar" aria-label="View options">
+      <button id="follow-btn" class="tool active" aria-pressed="true"><svg><use href="#i-track"/></svg><span>Track Santa</span></button>
+      <button id="sleighcam-btn" class="tool" aria-pressed="false"><svg><use href="#i-view"/></svg><span>Sleigh view</span></button>
+      <button id="santacam-btn" class="tool active" aria-pressed="true"><svg><use href="#i-cam"/></svg><span>Santa Cam</span></button>
+      <button id="route-btn" class="tool" aria-pressed="false"><svg><use href="#i-route"/></svg><span>Full route</span></button>
+      <span class="divider"></span>
+      <button id="demo-btn" class="tool" aria-pressed="false"><svg><use href="#i-sim"/></svg><span>Simulation</span></button>
+    </nav>
   </header>
 
-  <aside class="panel tracker" aria-live="polite">
-    <div class="gift-box">
-      <div class="label">Gifts delivered</div>
-      <div id="gifts" class="gifts">0</div>
-      <div class="progress"><div id="progress-bar"></div></div>
-    </div>
-    <p id="status" class="status"></p>
-    <div class="row"><div class="label">📍 Current location</div><div id="location" class="value"></div></div>
-    <div class="row next"><div class="label">➡️ Next stop</div><div id="next-stop" class="value"></div><div id="next-eta" class="sub"></div></div>
-    <div class="row final"><div class="label">🏁 Final destination</div><div id="final-stop" class="value"></div><div id="final-eta" class="sub"></div></div>
-    <div class="stats">
-      <div><div class="label">Stops</div><div id="stops-count" class="stat"></div></div>
-      <div><div class="label">Distance</div><div id="distance" class="stat"></div></div>
-      <div><div class="label">Speed</div><div id="speed" class="stat"></div></div>
-      <div><div class="label">Cookies eaten</div><div id="cookies" class="stat"></div></div>
-    </div>
-    <button id="near-btn" class="link-btn">🏠 When does Santa reach me?</button>
-    <p id="near-result" class="sub"></p>
+  <aside class="panel hud" aria-live="polite">
+    <div class="label">Gifts delivered</div>
+    <div id="gifts" class="gift-count">0</div>
+    <div class="progress"><div id="progress-bar"></div></div>
+    <div class="progress-meta"><span><span id="progress-pct">0%</span> of route complete</span><span id="stops-count"></span></div>
+    <p class="status-line"><span class="status-dot"></span><span id="status"></span></p>
+    <dl class="metrics">
+      <div><dt>Distance flown</dt><dd id="distance" class="mono">0</dd></div>
+      <div><dt>Ground speed</dt><dd id="speed" class="mono">0</dd></div>
+      <div><dt>Local time at Santa</dt><dd id="santa-time" class="mono">--</dd></div>
+      <div><dt>Time zone</dt><dd id="santa-zone" class="mono">--</dd></div>
+    </dl>
+    <button id="near-btn" class="text-btn"><svg><use href="#i-pin"/></svg>When will Santa reach me?</button>
+    <p id="near-result" class="near-result"></p>
   </aside>
 
+  <section class="flightstrip" aria-label="Santa's position and destinations">
+    <div class="cell">
+      <div class="label"><svg><use href="#i-pin"/></svg>Current location</div>
+      <div id="location" class="value"></div>
+      <div id="location-sub" class="sub"></div>
+    </div>
+    <div class="cell next">
+      <div class="label"><svg><use href="#i-next"/></svg>Next stop</div>
+      <div id="next-stop" class="value"></div>
+      <div id="next-eta" class="sub"></div>
+    </div>
+    <div class="cell final">
+      <div class="label"><svg><use href="#i-flag"/></svg>Final destination</div>
+      <div id="final-stop" class="value"></div>
+      <div id="final-eta" class="sub"></div>
+    </div>
+  </section>
+
   <aside class="panel log-panel">
-    <h2>Recent stops</h2>
-    <ul id="log"></ul>
+    <div class="panel-head"><span class="label">Recent stops</span><span class="label">Gifts</span></div>
+    <ol id="log"></ol>
   </aside>
 
   <section id="santacam" class="santacam" aria-label="Live Santa Cam">
     <div class="santacam-head">
-      <span class="rec">● LIVE</span>
+      <span class="rec"><span class="rec-dot"></span>LIVE</span>
       <span class="santacam-title">Santa Cam · <span id="santacam-name"></span></span>
-      <button id="santacam-expand" class="icon-btn" title="Watch full screen" aria-label="Watch full screen">⤢</button>
-      <button id="santacam-close" class="icon-btn" title="Close" aria-label="Close Santa Cam">×</button>
+      <button id="santacam-expand" class="icon-btn" title="Show full screen" aria-label="Show full screen"><svg><use href="#i-expand"/></svg></button>
+      <button id="santacam-close" class="icon-btn" title="Close" aria-label="Close Santa Cam"><svg><use href="#i-close"/></svg></button>
     </div>
     <div class="santacam-view"><div id="santacam-caption" class="santacam-caption"></div></div>
-    <div class="santacam-angles">
-      <button class="chip" data-cam="chase">Chase</button>
-      <button class="chip" data-cam="rider">Santa’s view</button>
-      <button class="chip" data-cam="side">Side</button>
-      <button class="chip" data-cam="front">Reindeer</button>
-      <button class="chip" data-cam="top">Overhead</button>
+    <div class="santacam-angles" role="group" aria-label="Camera angle">
+      <button data-cam="chase">Chase</button>
+      <button data-cam="rider">Santa’s view</button>
+      <button data-cam="side">Side</button>
+      <button data-cam="front">Reindeer</button>
+      <button data-cam="top">Overhead</button>
     </div>
   </section>
 
-  <footer class="credits">Santa &amp; sleigh model: <a href="https://sketchfab.com/3d-models/santa-norad-santa-tracker-227766d4adc44aacaf90233c168984ac" target="_blank" rel="noopener">“Santa - NORAD Santa Tracker”</a> by <a href="https://sketchfab.com/tenslant44" target="_blank" rel="noopener">tenslant44</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></footer>
+  <footer class="credits">3D model: <a href="https://sketchfab.com/3d-models/santa-norad-santa-tracker-227766d4adc44aacaf90233c168984ac" target="_blank" rel="noopener">“Santa - NORAD Santa Tracker”</a> by <a href="https://sketchfab.com/tenslant44" target="_blank" rel="noopener">tenslant44</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></footer>
 
   <button id="mini-countdown" class="mini-countdown" hidden></button>
 
   <section id="countdown" class="countdown" hidden>
     <div class="cd-card">
-      <div class="cd-icon">🦌🛷</div>
-      <h2 id="cd-title">Santa launches from the North Pole in</h2>
+      <div class="label" id="cd-kicker">Departure from the North Pole</div>
+      <h2 id="cd-title">Santa takes off in</h2>
       <div class="cd-grid">
-        <div><span id="cd-days">0</span><small>days</small></div>
-        <div><span id="cd-hours">00</span><small>hours</small></div>
-        <div><span id="cd-mins">00</span><small>minutes</small></div>
-        <div><span id="cd-secs">00</span><small>seconds</small></div>
+        <div><span id="cd-days">0</span><small>Days</small></div>
+        <div><span id="cd-hours">00</span><small>Hours</small></div>
+        <div><span id="cd-mins">00</span><small>Minutes</small></div>
+        <div><span id="cd-secs">00</span><small>Seconds</small></div>
       </div>
       <p id="cd-sub" class="cd-sub"></p>
       <div class="cd-actions">
-        <button id="cd-demo" class="btn primary">✨ Watch a demo flight</button>
-        <button id="cd-explore" class="btn">🌍 Explore the globe</button>
+        <button id="cd-demo" class="btn primary"><svg><use href="#i-play"/></svg>Watch the flight simulation</button>
+        <button id="cd-explore" class="btn">Explore the globe</button>
       </div>
     </div>
   </section>
 
-  <div class="demo-bar" role="group" aria-label="Demo controls">
-    <span class="demo-tag">DEMO</span>
-    <button id="demo-play" class="chip" aria-label="Play or pause">⏸</button>
-    <input id="scrub" type="range" step="1000" aria-label="Christmas Eve timeline">
-    <div class="speeds">
-      <button class="chip" data-speed="60">60×</button>
-      <button class="chip" data-speed="120">120×</button>
-      <button class="chip" data-speed="600">600×</button>
-      <button class="chip" data-speed="1800">1800×</button>
+  <div class="demo-bar" role="group" aria-label="Simulation controls">
+    <span class="demo-tag">SIMULATION</span>
+    <button id="demo-play" class="icon-btn" aria-label="Pause"><svg><use href="#i-pause"/></svg></button>
+    <div class="scrub-wrap">
+      <input id="scrub" type="range" step="1000" aria-label="Christmas Eve timeline">
+      <span id="scrub-time" class="mono"></span>
     </div>
-    <button id="demo-exit" class="chip">Exit demo</button>
+    <div class="speeds" role="group" aria-label="Playback speed">
+      <button data-speed="1">1×</button>
+      <button data-speed="5">5×</button>
+      <button data-speed="20">20×</button>
+      <button data-speed="60">60×</button>
+    </div>
+    <button id="demo-exit" class="text-btn">Exit</button>
   </div>
 
   <script type="module" src="/build/app.js"></script>
