@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "santa-tracker",
+  "name": "santa-tracker2",
   "main": "src/worker.js",
   "compatibility_date": "2025-10-01",
   // Static files (the globe, textures, and the bundled app) are served for free
