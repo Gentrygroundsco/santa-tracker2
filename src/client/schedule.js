@@ -78,7 +78,9 @@ export function buildSchedule(year) {
   points.forEach((p, i) => {
     p.index = i;
     if (i > 0) dist += distanceKm(points[i - 1], p);
-    gifts += p.home ? 0 : Math.round((p.pop / totalPop) * TOTAL_GIFTS);
+    // The final stop takes the rounding remainder so the total is exact.
+    if (p === last) gifts = TOTAL_GIFTS;
+    else gifts += p.home ? 0 : Math.round((p.pop / totalPop) * TOTAL_GIFTS);
     p.giftsCum = gifts;
     p.distCum = dist;
     p.gifts = i > 0 ? p.giftsCum - points[i - 1].giftsCum : 0;
@@ -129,7 +131,10 @@ export function santaState(schedule, t) {
 
   if (t < p.depart) {
     // Delivering at stop p.
-    return { phase: 'delivering', lat: p.lat, lng: p.lng, gifts: giftsBetween(points[i - 1], p),
+    const gifts = points[i - 1].home
+      ? p.giftsCum * Math.min(1, (t - p.arrive) / (p.depart - p.arrive || 1))
+      : giftsBetween(points[i - 1], p);
+    return { phase: 'delivering', lat: p.lat, lng: p.lng, gifts,
       distance: p.distCum, speed: 0, visited: i, current: p, next, prev: points[i - 1], heading: next };
   }
 
@@ -137,7 +142,8 @@ export function santaState(schedule, t) {
   const f = (t - p.depart) / (next.arrive - p.depart);
   const pos = interpolate(p, next, f);
   const legKm = next.distCum - p.distCum;
-  return { phase: 'flying', lat: pos.lat, lng: pos.lng, gifts: giftsBetween(p, next),
+  // Nothing is delivered on the flight out of the North Pole.
+  return { phase: 'flying', lat: pos.lat, lng: pos.lng, gifts: p.home ? 0 : giftsBetween(p, next),
     distance: p.distCum + f * legKm, speed: legKm / ((next.arrive - p.depart) / HOUR),
     visited: i, next, prev: p, heading: next, legFraction: f };
 }

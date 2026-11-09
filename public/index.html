@@ -6,6 +6,16 @@
   <title>Santa Tracker</title>
   <meta name="description" content="Follow Santa's sleigh live on a 3D globe on Christmas Eve: gifts delivered, his current position, next stop and final destination.">
   <meta name="theme-color" content="#070b14">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Santa Tracker">
+  <meta property="og:title" content="Santa Tracker: follow Santa live on Christmas Eve">
+  <meta property="og:description" content="Watch Santa's sleigh fly around the world on a live 3D globe, with gifts delivered, his next stop and the countdown to takeoff.">
+  <meta property="og:url" content="https://santa-tracker2.gentrygroundsco.workers.dev/">
+  <meta property="og:image" content="https://santa-tracker2.gentrygroundsco.workers.dev/img/share.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://santa-tracker2.gentrygroundsco.workers.dev/">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23c62828'/%3E%3Cpath d='M16 6l2.6 6.4 6.9.5-5.3 4.4 1.7 6.7L16 20.3 10.1 24l1.7-6.7-5.3-4.4 6.9-.5z' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +40,11 @@
       <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
     </defs>
   </svg>
+
+  <div id="loading" class="loading" aria-hidden="true">
+    <span class="logo"><svg><use href="#i-star"/></svg></span>
+    <span class="loading-text">Locating Santa…</span>
+  </div>
 
   <div id="globe" aria-label="3D globe showing Santa's position"></div>
   <div id="tags" aria-hidden="true">
@@ -152,6 +167,73 @@
     <button id="demo-exit" class="text-btn">Exit</button>
   </div>
 
-  <script type="module" src="/build/app.js"></script>
+  <!-- On-air graphics for OBS (/broadcast) -->
+  <div id="bc" class="bc" hidden>
+    <div class="bc-bug">
+      <span class="logo"><svg><use href="#i-star"/></svg></span>
+      <div>
+        <div class="bc-title">SANTA TRACKER</div>
+        <div class="bc-sub">Christmas Eve <span id="bc-year"></span></div>
+      </div>
+      <span id="bc-pill" class="status-pill"><span class="pulse"></span><span id="bc-pill-text"></span></span>
+    </div>
+    <div class="bc-clocks">
+      <div><span class="k">UTC</span><span id="bc-utc" class="mono"></span></div>
+      <div><span class="k">At Santa</span><span id="bc-santa-time" class="mono"></span></div>
+    </div>
+    <div id="bc-camlabel" class="bc-camlabel"></div>
+    <div class="bc-lower">
+      <div class="bc-gifts">
+        <div class="k">Gifts delivered</div>
+        <div id="bc-gifts" class="n">0</div>
+        <div class="bc-progress"><div id="bc-progress"></div></div>
+      </div>
+      <div class="bc-cell"><div class="k">Now</div><div id="bc-now" class="v"></div><div id="bc-now-sub" class="s"></div></div>
+      <div class="bc-cell next"><div class="k">Next stop</div><div id="bc-next" class="v"></div><div id="bc-next-sub" class="s"></div></div>
+      <div class="bc-cell final"><div class="k">Final destination</div><div id="bc-final" class="v"></div><div id="bc-final-sub" class="s"></div></div>
+      <div class="bc-cell stats">
+        <div><span class="k">Distance</span><span id="bc-dist" class="mono"></span></div>
+        <div><span class="k">Stops</span><span id="bc-stops" class="mono"></span></div>
+      </div>
+    </div>
+    <div class="bc-ticker">
+      <span id="bc-ticker-label" class="bc-ticker-label">LATEST</span>
+      <div id="bc-ticker-track" class="bc-ticker-track"><div id="bc-ticker-inner" class="bc-ticker-inner"></div></div>
+      <span id="bc-url" class="bc-url"></span>
+    </div>
+    <div id="bc-card" class="bc-card" hidden>
+      <div id="bc-card-kicker" class="bc-card-kicker"></div>
+      <div id="bc-card-title" class="bc-card-title"></div>
+      <div id="bc-digits" class="bc-digits">
+        <div><span id="bc-d">0</span><small>Days</small></div>
+        <div><span id="bc-h">00</span><small>Hours</small></div>
+        <div><span id="bc-m">00</span><small>Minutes</small></div>
+        <div><span id="bc-s">00</span><small>Seconds</small></div>
+      </div>
+      <div id="bc-card-stats" class="bc-card-stats" hidden>
+        <div><div class="k">Gifts delivered</div><div id="bc-card-gifts" class="mono"></div></div>
+        <div><div id="bc-card-next-k" class="k">Next stop</div><div id="bc-card-next"></div></div>
+        <div><div class="k">Distance flown</div><div id="bc-card-dist" class="mono"></div></div>
+      </div>
+      <div id="bc-card-sub" class="bc-card-sub"></div>
+    </div>
+    <div id="bc-fade" class="bc-fade"></div>
+    <div class="bc-credit">3D model “Santa - NORAD Santa Tracker” by tenslant44 · CC BY 4.0</div>
+  </div>
+
+  <!-- Shown instead of the globe on devices without WebGL -->
+  <section id="lite" class="lite" hidden>
+    <div class="lite-card">
+      <div class="label">Gifts delivered</div>
+      <div id="lite-gifts" class="gift-count">0</div>
+      <p id="lite-status" class="lite-status"></p>
+      <p id="lite-next" class="lite-next"></p>
+      <p class="lite-note">This device can’t show the 3D globe, so here is Santa’s live status.</p>
+    </div>
+  </section>
+
+  <noscript><p class="noscript">The Santa Tracker needs JavaScript turned on.</p></noscript>
+
+  <script type="module" src="/build/entry.js"></script>
 </body>
 </html>

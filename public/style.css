@@ -230,3 +230,124 @@ body.demo .hud { max-height: calc(100vh - 76px - 196px); }
 @media (prefers-reduced-motion: reduce) {
   .status-pill.live .pulse, .rec-dot, .santa-dot { animation: none; }
 }
+
+/* ---------- Loading screen ---------- */
+.loading { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: var(--bg); transition: opacity 0.6s ease, visibility 0.6s; }
+.loading.done { opacity: 0; visibility: hidden; pointer-events: none; }
+.loading-text { font-size: 13px; color: var(--muted); letter-spacing: 0.06em; }
+.loading .logo { animation: breathe 1.8s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(0.88); opacity: 0.75; } }
+.noscript { position: fixed; inset: auto 0 40%; text-align: center; z-index: 60; color: var(--text); }
+
+/* ---------- Simple status page (no WebGL) and card-only scenes ---------- */
+body.cards { background: radial-gradient(ellipse at 50% 120%, #14254a 0%, var(--bg) 60%) fixed, var(--bg); }
+body.cards #globe, body.cards #tags, body.cards .topbar, body.cards .hud, body.cards .flightstrip, body.cards .log-panel,
+body.cards .santacam, body.cards .countdown, body.cards .mini-countdown, body.cards .demo-bar { display: none !important; }
+.lite { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; }
+.lite[hidden] { display: none; }
+.lite-card { width: 100%; max-width: 460px; text-align: center; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 14px; padding: 28px 22px; }
+.lite-card .label { justify-content: center; }
+.lite-status { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+.lite-next { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+.lite-note { color: var(--faint); font-size: 12px; margin: 0; }
+
+/* ---------- Broadcast (OBS browser source, 1920×1080) ----------
+   Everything is sized in rem and the root size follows the width, so the
+   layout is identical at 1280×720, 1920×1080 or 4K. */
+html.broadcast { font-size: calc(100vw / 120); }
+body.broadcast { cursor: none; }
+body.broadcast .topbar, body.broadcast .hud, body.broadcast .flightstrip, body.broadcast .log-panel, body.broadcast .credits,
+body.broadcast .countdown, body.broadcast .mini-countdown, body.broadcast .demo-bar,
+body.broadcast .santacam-head, body.broadcast .santacam-angles { display: none !important; }
+body.broadcast .santacam { top: auto; left: auto; right: 2.5rem; bottom: 15.5rem; width: 24rem; border: 0.125rem solid rgba(255, 255, 255, 0.18); border-radius: 0.5rem; box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.45); }
+body.broadcast .santacam-caption { left: 0.6rem; bottom: 0.5rem; font-size: 0.75rem; padding: 0.2rem 0.5rem; }
+body.broadcast.bc-card-on .santacam, body.broadcast.bc-card-on #tags { display: none !important; }
+body.broadcast .tag { font-size: 0.75rem; padding: 0.3rem 0.55rem; }
+body.broadcast .santa-label { font-size: 0.7rem; padding: 0.2rem 0.5rem; }
+body.broadcast .santa-dot { width: 0.9rem; height: 0.9rem; }
+
+.bc { position: fixed; inset: 0; z-index: 10; pointer-events: none; font-size: 1rem; }
+.bc[hidden] { display: none; }
+.bc .k { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.bc-glass { background: rgba(8, 13, 25, 0.88); border: 1px solid rgba(255, 255, 255, 0.1); }
+
+.bc-bug { position: absolute; left: 2.5rem; top: 2rem; display: flex; align-items: center; gap: 0.9rem; padding: 0.7rem 1.1rem 0.7rem 0.8rem; border-radius: 0.6rem;
+  background: rgba(8, 13, 25, 0.88); border: 1px solid rgba(255, 255, 255, 0.1); }
+.bc-bug .logo { width: 2.6rem; height: 2.6rem; }
+.bc-bug .logo svg { width: 1.35rem; height: 1.35rem; }
+.bc-title { font-weight: 800; font-size: 1.15rem; letter-spacing: 0.16em; }
+.bc-sub { font-size: 0.85rem; color: var(--muted); margin-top: 0.1rem; }
+.bc .status-pill { height: 1.9rem; padding: 0 0.85rem; border-radius: 0.95rem; font-size: 0.8rem; gap: 0.5rem; margin-left: 0.4rem; }
+.bc .status-pill .pulse { width: 0.5rem; height: 0.5rem; }
+
+.bc-clocks { position: absolute; right: 2.5rem; top: 2rem; display: flex; border-radius: 0.6rem; overflow: hidden;
+  background: rgba(8, 13, 25, 0.88); border: 1px solid rgba(255, 255, 255, 0.1); }
+.bc-clocks > div { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.75rem 1.2rem; }
+.bc-clocks > div + div { border-left: 1px solid rgba(255, 255, 255, 0.1); }
+.bc-clocks .mono { font-size: 1.25rem; font-weight: 600; white-space: nowrap; }
+
+.bc-camlabel { position: absolute; left: 2.5rem; top: 7.4rem; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.14em; color: #fff;
+  padding: 0.4rem 0.75rem; border-radius: 0.35rem; background: rgba(229, 56, 59, 0.9); }
+.bc-camlabel:empty { display: none; }
+
+.bc-lower { position: absolute; left: 2.5rem; right: 2.5rem; bottom: 5.5rem; display: grid; grid-template-columns: 18rem 1fr 1fr 1fr 19rem;
+  border-radius: 0.7rem; overflow: hidden; background: rgba(8, 13, 25, 0.9); border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: opacity 0.5s ease; }
+body.bc-card-on .bc-lower { opacity: 0; }
+.bc-lower > div { padding: 1.1rem 1.4rem; min-width: 0; }
+.bc-lower > div + div { border-left: 1px solid rgba(255, 255, 255, 0.08); }
+.bc-gifts { background: rgba(229, 56, 59, 0.12); }
+.bc-gifts .n { font-size: 2.35rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #fff; margin: 0.25rem 0 0.6rem; white-space: nowrap; }
+.bc-progress { height: 0.3rem; background: rgba(255, 255, 255, 0.1); border-radius: 0.15rem; overflow: hidden; }
+.bc-progress > div { height: 100%; width: 0; background: var(--red); }
+.bc-cell .v { font-size: 1.35rem; font-weight: 600; margin-top: 0.55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bc-cell .s { font-size: 1rem; color: var(--muted); margin-top: 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.bc-cell.next .k { color: #ff9a9c; }
+.bc-cell.final .k { color: #8fe3bd; }
+.bc-cell.stats { display: flex; flex-direction: column; justify-content: center; gap: 0.7rem; }
+.bc-cell.stats > div { display: flex; flex-direction: column; gap: 0.2rem; }
+.bc-cell.stats .mono { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.bc-ticker { position: absolute; left: 0; right: 0; bottom: 1.5rem; height: 2.75rem; display: flex; align-items: stretch;
+  background: rgba(5, 9, 18, 0.94); border-top: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.bc-ticker-label { flex: none; display: flex; align-items: center; padding: 0 1.2rem 0 2.5rem; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.14em; color: #fff; background: var(--red); }
+.bc-ticker-track { position: relative; flex: 1; overflow: hidden; }
+.bc-ticker-inner { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; white-space: nowrap; will-change: transform; }
+.bc-tick { display: inline-flex; align-items: center; font-size: 1.05rem; color: #d9e1ee; padding-right: 3rem; }
+.bc-tick::before { content: ''; width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--gold); margin-right: 1rem; flex: none; }
+.bc-tick b { color: #fff; font-weight: 600; margin: 0 0.3em; }
+.bc-url { flex: none; display: flex; align-items: center; padding: 0 2.5rem 0 1.2rem; font-family: var(--mono); font-size: 0.9rem; color: #fff; background: #0e1a33; border-left: 1px solid rgba(255, 255, 255, 0.1); }
+
+.bc-card { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); width: 64rem; max-width: calc(100% - 5rem); text-align: center;
+  padding: 3rem 3.5rem 2.6rem; border-radius: 1rem; background: rgba(8, 13, 25, 0.86); border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.5); }
+.bc-card[hidden] { display: none; }
+.bc-card-kicker { font-size: 0.95rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); }
+.bc-card-title { font-size: 3.4rem; font-weight: 700; letter-spacing: -0.02em; margin: 0.6rem 0 2rem; }
+.bc-digits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.bc-digits[hidden], .bc-card-stats[hidden] { display: none; }
+.bc-digits > div { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.8rem; padding: 1.4rem 0.5rem 1.1rem; background: rgba(255, 255, 255, 0.03); }
+.bc-digits span { display: block; font-size: 5.2rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.bc-digits small { display: block; margin-top: 0.7rem; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.bc-card-stats { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.8rem; overflow: hidden; text-align: left; }
+.bc-card-stats > div { padding: 1.3rem 1.5rem; min-width: 0; }
+.bc-card-stats > div + div { border-left: 1px solid rgba(255, 255, 255, 0.08); }
+.bc-card-stats > div > div:last-child { font-size: 1.6rem; font-weight: 600; margin-top: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bc-card-sub { margin-top: 1.8rem; font-size: 1.2rem; color: var(--muted); }
+.bc-card[data-kind="brb"] .bc-card-kicker, .bc-card[data-kind="end"] .bc-card-kicker { color: #9fc0ff; }
+.bc-card[data-kind="home"] .bc-card-kicker { color: var(--green); }
+
+.bc-fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.4s ease; }
+.bc-fade.on { opacity: 1; }
+.bc-credit { position: absolute; right: 2.5rem; bottom: 0.3rem; font-size: 0.62rem; color: rgba(255, 255, 255, 0.4); }
+
+/* Card-only scenes (be right back / ending) have no globe behind them. */
+body.cards.broadcast .bc-lower, body.cards.broadcast .bc-camlabel { display: none; }
+body.cards.broadcast { background: radial-gradient(ellipse at 50% 115%, #1a2d57 0%, #0a1224 45%, var(--bg) 75%) fixed, var(--bg); }
+body.broadcast .santacam-caption { display: none; }
+.bc-card-stats { grid-template-columns: 1.1fr 0.8fr 1.5fr; }
+.bc-tick { display: inline-block; white-space: nowrap; }
+.bc-tick::before { display: inline-block; vertical-align: middle; position: relative; top: -0.1rem; }
+.bc-tick b { margin: 0; }
+.bc-gifts .n { font-size: 2.1rem; }

@@ -2,30 +2,16 @@ import Globe from 'globe.gl';
 import * as THREE from 'three';
 import { buildSchedule, santaState, seasonYear, sunPosition, distanceKm } from './schedule.js';
 import { createSleigh, createTrail, loadSleighModel } from './sleigh.js';
+import { clock, keepClockSynced } from './clock.js';
+import { fmtInt, fmtDuration, fmtTime, place, fmtDist, fmtSpeed, fmtClock, fmtZone, coords, santaZone } from './format.js';
+import { broadcast, scene } from './mode.js';
+import { createBroadcast } from './broadcast.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const R = 100; // globe.gl's globe radius in scene units
 
-// ---------- Clock ----------
-// Live mode follows real time (corrected by the server clock). Demo mode runs a
-// simulated Christmas Eve at a chosen speed. `?t=2026-12-24T18:00:00Z` pins the
-// live clock to another moment, which is handy for previews.
-const clock = {
-  serverOffset: 0,
-  pinnedOffset: params.has('t') ? Date.parse(params.get('t')) - Date.now() : 0,
-  demo: false,
-  demoTime: 0,
-  speed: Number(params.get('speed')) || 1,
-  paused: false,
-  now() { return this.demo ? this.demoTime : Date.now() + this.serverOffset + this.pinnedOffset; },
-};
-
-fetch('/api/time', { cache: 'no-store' })
-  .then((r) => r.json())
-  .then(({ now }) => { if (Math.abs(now - Date.now()) > 2000) clock.serverOffset = now - Date.now(); })
-  .catch(() => {});
-
+keepClockSynced();
 let schedule = buildSchedule(seasonYear(clock.now()));
 
 // ---------- Globe ----------
@@ -83,6 +69,15 @@ const globe = new Globe($('globe'), { animateIn: true })
   .ringMaxRadius(1.6)
   .ringPropagationSpeed(1.2)
   .ringRepeatPeriod(1400);
+
+// Phones with 3x screens don't need 3x the pixels; it only costs battery and frames.
+globe.renderer().setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+if (broadcast) globe.enablePointerInteraction(false);
+
+// Hide the loading screen once the globe is drawn (or after a few seconds regardless).
+const hideLoading = () => $('loading').classList.add('done');
+globe.onGlobeReady(() => setTimeout(hideLoading, 400));
+setTimeout(hideLoading, 8000);
 
 const controls = globe.controls();
 controls.enableDamping = true;
@@ -159,7 +154,7 @@ const setPressed = (btn, on) => { btn.classList.toggle('active', on); btn.setAtt
 let camYaw = 0;
 const followBtn = $('follow-btn');
 const sleighBtn = $('sleighcam-btn');
-function setCamMode(mode) {
+function setCamMode(mode, { instant = false } = {}) {
   const leavingSleigh = camMode === 'sleigh' && mode !== 'sleigh';
   camMode = mode;
   lastVisited = -2;
@@ -176,7 +171,7 @@ function setCamMode(mode) {
     controls.minDistance = R * 1.08;
     controls.enabled = true;
     const st = santaState(schedule, clock.now());
-    globe.pointOfView({ lat: THREE.MathUtils.clamp(st.lat, -85, 85), lng: st.lng, altitude: 1.6 }, 900);
+    globe.pointOfView({ lat: THREE.MathUtils.clamp(st.lat, -85, 85), lng: st.lng, altitude: 1.6 }, instant ? 0 : 900);
   }
 }
 let dragX = null;
@@ -265,36 +260,6 @@ $('route-btn').addEventListener('click', () => {
 });
 
 // ---------- Panel ----------
-const fmtInt = (n) => Math.floor(n).toLocaleString();
-const fmtDuration = (ms) => {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  if (d) return `${d}d ${h}h ${m}m`;
-  if (h) return `${h}h ${m}m ${sec}s`;
-  return `${m}m ${sec.toString().padStart(2, '0')}s`;
-};
-const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-const place = (p) => (p.home ? 'North Pole' : `${p.name}, ${p.region}`);
-const metric = !['en-US', 'en-LR', 'my'].includes(navigator.language);
-const fmtDist = (km) => (metric ? `${fmtInt(km)} km` : `${fmtInt(km * 0.621371)} mi`);
-const fmtSpeed = (kmh) => (metric ? `${fmtInt(kmh)} km/h` : `${fmtInt(kmh * 0.621371)} mph`);
-
-const fmtClock = (t, offsetHours) => {
-  const d = new Date(t + offsetHours * 3600e3);
-  let h = d.getUTCHours();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${h}:${String(d.getUTCMinutes()).padStart(2, '0')} ${ampm}`;
-};
-const fmtZone = (offset) => {
-  if (offset === 0) return 'UTC';
-  const sign = offset > 0 ? '+' : '−';
-  const a = Math.abs(offset);
-  const m = Math.round((a % 1) * 60);
-  return `UTC${sign}${Math.floor(a)}${m ? `:${String(m).padStart(2, '0')}` : ''}`;
-};
-const coords = (lat, lng) => `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(2)}° ${lng >= 0 ? 'E' : 'W'}`;
-
 function renderPanel(state, t) {
   const { phase } = state;
   document.body.dataset.phase = phase;
@@ -349,10 +314,9 @@ function renderPanel(state, t) {
   $('speed').textContent = phase === 'flying' ? fmtSpeed(state.speed) : phase === 'delivering' ? 'Stationary' : '0';
 
   // Local time where Santa is: the zone of the stop he is at or flying to.
-  const zoneStop = state.current || (phase === 'flying' && !state.next.home ? state.next : null);
-  const offset = zoneStop ? zoneStop.offset : 0;
+  const offset = santaZone(state);
   $('santa-time').textContent = fmtClock(t, offset);
-  $('santa-zone').textContent = zoneStop ? fmtZone(offset) : 'UTC';
+  $('santa-zone').textContent = fmtZone(offset);
 
   renderCountdown(state, t);
   renderLog(state);
@@ -597,7 +561,8 @@ function frame(nowMs) {
     dLng = ((dLng + 540) % 360) - 180;
     const k = Math.min(1, dt * 2.5);
     const lat = THREE.MathUtils.clamp(pov.lat + (state.lat - pov.lat) * k, -85, 85);
-    globe.pointOfView({ lat, lng: pov.lng + dLng * k, altitude: pov.altitude }, 0);
+    const altitude = followAlt === null ? pov.altitude : pov.altitude + (followAlt - pov.altitude) * Math.min(1, dt * 0.8);
+    globe.pointOfView({ lat, lng: pov.lng + dLng * k, altitude }, 0);
   }
 
   // Screen tags: the Santa pin fades out once the 3D sleigh is big enough to see.
@@ -614,12 +579,71 @@ function frame(nowMs) {
   renderSantaCam(tmp.pos, tmp.fwd, tmp.up, tmp.right, scale, dt);
 
   $('gifts').textContent = fmtInt(state.gifts);
+  if (bc) bc.frame(state, t, schedule, dt, nowMs);
   if (nowMs - lastPanel > 200) {
     lastPanel = nowMs;
-    renderPanel(state, t);
+    if (!bc) renderPanel(state, t);
     updateRouteLayers(state);
   }
+  lastFrameAt = performance.now();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+// ---------- Broadcast (OBS) ----------
+// The director in broadcast.js decides what's on screen; these move the camera.
+let followAlt = null;
+const bc = broadcast ? createBroadcast({
+  scene,
+  setView(s) {
+    controls.autoRotate = false;
+    if (s.view === 'cam') {
+      mainAngle = s.angle;
+      setCamMode('sleigh');
+      return;
+    }
+    setCamMode(s.view === 'globe' ? 'follow' : 'free', { instant: true });
+    const st = santaState(schedule, clock.now());
+    if (s.view === 'globe') {
+      followAlt = s.alt;
+      globe.pointOfView({ lat: THREE.MathUtils.clamp(st.lat, -85, 85), lng: st.lng, altitude: s.alt }, 0);
+    } else {
+      // A slow orbit of the whole globe.
+      followAlt = null;
+      globe.pointOfView({ lat: 28, lng: st.lng, altitude: 2.6 }, 0);
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.35;
+    }
+  },
+  setPip(angle) {
+    if (!angle) { if (pipOn) setPip(false); return; }
+    if (!pipOn) setPip(true);
+    if (pipAngle !== angle) setPipAngle(angle);
+  },
+}) : null;
+
+// ---------- Staying up for a 27-hour stream ----------
+// If the graphics driver drops the 3D context, or the page stops drawing, a
+// fresh load is the cleanest recovery; the tracker picks up exactly where
+// Santa is because everything is computed from the clock.
+let lastFrameAt = performance.now();
+const reload = (why) => {
+  console.warn(`Reloading: ${why}`);
+  setTimeout(() => location.reload(), 1500);
+};
+globe.renderer().domElement.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  reload('the 3D context was lost');
+}, false);
+setInterval(() => {
+  if (document.visibilityState === 'visible' && performance.now() - lastFrameAt > 20000) reload('frames stopped');
+}, 5000);
+if (broadcast) {
+  let errors = [];
+  window.addEventListener('error', () => {
+    const now = Date.now();
+    errors = errors.filter((t) => now - t < 60e3).concat(now);
+    if (errors.length > 20) reload('repeated errors');
+  });
+}
 

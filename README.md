@@ -26,6 +26,23 @@ Handy URLs while developing:
 - `/?demo` starts the flight simulation (`&speed=20` to speed it up)
 - `/?t=2026-12-24T23:10:00Z` pretends it is that moment, to preview the live tracker
 
+## Live stream (OBS)
+
+`/broadcast` is the same tracker laid out as 1920×1080 on-air graphics for an
+OBS Browser Source. `?scene=` picks what it shows:
+
+| URL | Shows |
+| --- | --- |
+| `/broadcast` | Main show: countdown before takeoff, then an automatic director cutting between the globe and Santa Cam angles, then the "Santa is home" card |
+| `/broadcast?scene=globe` | Globe only, following Santa |
+| `/broadcast?scene=cam` | Santa Cam only, cycling camera angles |
+| `/broadcast?scene=countdown` | Countdown card (a live status card once Santa is flying) |
+| `/broadcast?scene=brb` | Be right back card |
+| `/broadcast?scene=end` | Ending card |
+
+Rehearse any moment with `&t=2026-12-24T08:59:00Z`, and speed it up with `&warp=60`.
+The page reloads itself if the 3D view ever stops drawing, and re-syncs its clock every 10 minutes.
+
 ## Deploy to Cloudflare (free plan)
 
 Option 1, from your computer:

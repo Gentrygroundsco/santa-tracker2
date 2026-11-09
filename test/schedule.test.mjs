@@ -50,3 +50,11 @@ test('route sweeps each time zone instead of zig-zagging', () => {
   const total = s.points[s.points.length - 1].distCum;
   assert.ok(total < 450000, `route is ${Math.round(total)} km`);
 });
+
+test('no gifts before the first stop, and the exact total at the end', () => {
+  const s = buildSchedule(2026);
+  const first = s.points[1];
+  assert.equal(santaState(s, (s.takeoff + first.arrive) / 2).gifts, 0);
+  assert.equal(s.finalStop.giftsCum, TOTAL_GIFTS);
+  assert.equal(santaState(s, s.landing + 1).gifts, TOTAL_GIFTS);
+});

@@ -1,12 +1,15 @@
 import { build, context } from 'esbuild';
 
 const options = {
-  entryPoints: ['src/client/main.js'],
+  entryPoints: ['src/client/entry.js'],
   bundle: true,
   minify: true,
   format: 'esm',
   target: 'es2020',
-  outfile: 'public/build/app.js',
+  // The card scenes and the no-WebGL page load without the 3D code.
+  splitting: true,
+  outdir: 'public/build',
+  chunkNames: 'chunks/[name]-[hash]',
   logLevel: 'info',
 };
 
